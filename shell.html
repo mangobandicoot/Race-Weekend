@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race Weekend — iRacing Career RPG</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Italiana&family=Barlow+Condensed:wght@400;600;700;800;900&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+<style>
+html { font-size: 14px; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+@import url('https://fonts.googleapis.com/css2?family=Italiana&family=Barlow+Condensed:wght@400;600;700;800;900&family=Share+Tech+Mono&display=swap');
+
+body {
+    font-family: 'Inter', 'Arial Narrow', Arial, sans-serif;
+    background: #100E0C;
+    color: #E8E0D0;
+    font-size: 17px;
+    line-height: 1.55;
+    overflow: hidden;
+}
+
+input, textarea, select, button { font-family: inherit; font-size: 16px; }
+
+input, textarea, select {
+    background: #1E1A16;
+    border: 1px solid #4A4238;
+    border-radius: 5px;
+    color: #F0E8D8;
+    padding: 10px 13px;
+    width: 100%;
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: 2px solid #CC2020;
+    outline-offset: 1px;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0A0806; }
+::-webkit-scrollbar-thumb { background: #3A3228; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #5A5040; }
+
+/*setup screen */
+#setup-screen {
+    position: fixed; inset: 0;
+    background: #100E0C;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999;
+}
+#setup-screen.hidden { display: none; }
+
+.setup-box {
+    text-align: center; max-width: 540px;
+    width: 100%; padding: 24px;
+    animation: slideUp 0.5s ease;
+}
+
+.setup-logo {
+    font-size: 96px; font-weight: 900; line-height: 0.88;
+    color: #F0E8D8;
+    text-shadow: 4px 4px 0 #CC2020;
+    margin-bottom: 12px;
+}
+
+.setup-sub { font-size: 18px; color: #7A6E5E; margin-bottom: 10px; line-height: 1.5; }
+.setup-hint { font-size: 15px; color: #5A5040; line-height: 1.6; margin-bottom: 20px; }
+
+.setup-card {
+    background: #181410;
+    border: 1px solid #2E2820;
+    border-top: 4px solid #CC2020;
+    border-radius: 10px;
+    padding: 32px; margin-bottom: 16px;
+}
+
+.setup-card input[type=text] {
+    font-size: 22px; font-weight: 700;
+    text-align: center; margin-bottom: 18px;
+    border-width: 2px;
+}
+
+/* ─── APP SHELL ──────────────────────────────────────────── */
+#app { display: none; height: 100vh; overflow: hidden; }
+#app.visible { display: flex; flex-direction: row; }
+
+/* ─── SIDEBAR ────────────────────────────────────────────── */
+#sidebar {
+    width: 230px;
+    flex-shrink: 0;
+    background: #0A0806;
+    border-right: 2px solid #CC2020;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#sidebar-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid #2E2820;
+    flex-shrink: 0;
+}
+
+.sb-logo {
+    font-size: 26px; font-weight: 400;
+    font-family: 'Italiana', serif;
+    color: #F0E8D8; letter-spacing: 0.02em;
+    margin-bottom: 3px; line-height: 1;
+}
+
+.sb-version {
+    font-size: 11px; color: #3A3020;
+    letter-spacing: 0.15em; text-transform: uppercase;
+}
+
+#sidebar-stats {
+    padding: 16px 20px;
+    border-bottom: 1px solid #2E2820;
+    flex-shrink: 0;
+}
+
+.sb-driver-name {
+    font-size: 22px; font-weight: 900;
+    color: #F0E8D8; margin-bottom: 14px; line-height: 1.1;
+}
+
+.sb-stat-row {
+    display: flex; justify-content: space-between;
+    align-items: baseline; margin-bottom: 8px;
+}
+
+.sb-stat-label {
+    font-size: 12px; color: #5A4E38;
+    text-transform: uppercase; letter-spacing: 0.1em;
+}
+
+.sb-stat-value {
+    font-size: 18px; font-weight: 800;
+    color: #F0E8D8;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.sb-stat-value.money { color: #5ECC7B; }
+.sb-stat-value.fans  { color: #CC2020; }
+.sb-stat-value.rep   { color: #6A9AE0; }
+
+#sidebar-nav {
+    flex: 1;
+    padding: 10px 0;
+    overflow-y: auto;
+}
+
+.nav-section-label {
+    font-size: 10px; font-weight: 900;
+    color: #3A2C18;
+    text-transform: uppercase; letter-spacing: 0.2em;
+    padding: 12px 20px 4px;
+}
+
+.nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 16px; font-weight: 700;
+    color: #5A4E38;
+    border-left: 3px solid transparent;
+    transition: color 0.12s, background 0.12s;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.nav-item:hover { color: #D0C8B0; background: #141008; }
+.nav-item.active { color: #F0E8D8; border-left-color: #CC2020; background: #1C0C0C; }
+
+.nav-item .nav-icon { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+
+.nav-badge {
+    margin-left: auto;
+    background: #CC2020; color: #FFF;
+    font-size: 11px; font-weight: 900;
+    padding: 1px 7px; border-radius: 10px;
+    flex-shrink: 0;
+}
+
+/* ─── MAIN AREA ──────────────────────────────────────────── */
+#main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    background: #100E0C;
+}
+
+/* ─── MAIN HEADER BAR ────────────────────────────────────── */
+#main-header {
+    background: #0A0806;
+    border-bottom: 3px solid #CC2020;
+    padding: 0 36px;
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    min-height: 56px;
+}
+
+.mh-section {
+    display: flex; align-items: center;
+    padding: 0 28px;
+    border-right: 1px solid #2E2820;
+    gap: 10px;
+}
+
+.mh-section:first-child { padding-left: 0; }
+.mh-section:last-child { border-right: none; }
+
+.mh-label {
+    font-size: 11px; color: #5A4E38;
+    text-transform: uppercase; letter-spacing: 0.12em;
+}
+
+.mh-value {
+    font-size: 22px; font-weight: 900;
+    font-family: 'Share Tech Mono', monospace;
+    color: #F0E8D8;
+}
+
+.mh-value.positive { color: #5ECC7B; }
+.mh-value.warn     { color: #CC2020; }
+
+/* ─── CONTENT AREA ───────────────────────────────────────── */
+#content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 40px;
+    background: #100E0C;
+}
+
+.page { max-width: 1480px; margin: 0 auto; animation: fadeIn 0.18s ease; }
+
+.page-title {
+    font-size: 36px; font-weight: 400;
+    font-family: 'Italiana', serif;
+    color: #F0E8D8; margin-bottom: 4px;
+    letter-spacing: 0.01em;
+    border-bottom: 3px solid #CC2020;
+    padding-bottom: 10px;
+}
+
+.page-sub { font-size: 17px; color: #6A5E48; margin-bottom: 26px; margin-top: 6px; }
+
+/* ─── CARDS ──────────────────────────────────────────────── */
+.card {
+    background: #181410;
+    border: 1px solid #2E2820;
+    border-radius: 8px;
+    padding: 22px 24px;
+    margin-bottom: 16px;
+}
+
+.card-title {
+    font-size: 16px; color: #6A5E48;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    margin-bottom: 16px; font-weight: 700;
+}
+
+/* ─── GRIDS ──────────────────────────────────────────────── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+/* ─── STAT BAR ───────────────────────────────────────────── */
+.stat-bar { margin-bottom: 12px; }
+.stat-bar .sb-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 15px; }
+.stat-bar .sb-lbl { color: #6A5E48; text-transform: uppercase; letter-spacing: 0.08em; }
+.stat-bar .sb-val { color: #E8E0D0; font-weight: 800; }
+.stat-bar .sb-track { height: 6px; background: #2E2820; border-radius: 3px; overflow: hidden; }
+.stat-bar .sb-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+
+/* ─── BADGE ──────────────────────────────────────────────── */
+.badge {
+    display: inline-block; padding: 3px 10px; border-radius: 4px;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+    border: 1px solid; white-space: nowrap;
+}
+
+/* ─── BUTTONS ────────────────────────────────────────────── */
+button {
+    cursor: pointer; border: none; border-radius: 5px;
+    font-weight: 800; letter-spacing: 0.03em;
+    transition: opacity 0.15s, filter 0.15s;
+    white-space: nowrap;
+}
+button:not(:disabled):hover { filter: brightness(1.15); }
+button:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+.btn      { padding: 10px 22px; font-size: 16px; }
+.btn-lg   { padding: 13px 30px; font-size: 18px; }
+.btn-full { width: 100%; }
+.btn-sm   { padding: 7px 16px; font-size: 15px; }
+.btn-xs   { padding: 4px 10px; font-size: 13px; }
+
+.btn-primary   { background: #CC2020; color: #FFFFFF; }
+.btn-success   { background: #1A4A28; color: #5ECC7B; border: 1px solid #2A6838; }
+.btn-danger    { background: #4A1010; color: #FF7070; border: 1px solid #6A2020; }
+.btn-chaos     { background: #2A1040; color: #C8A8FF; }
+.btn-ghost     { background: transparent; color: #9A8E78; border: 1.5px solid #4A4238; }
+.btn-secondary { background: #1E1A16; color: #E8E0D0; border: 1px solid #2E2820; }
+.btn-warn      { background: #4A1E08; color: #E8902A; border: 1px solid #6A3010; }
+
+/* ─── ROW ITEM ───────────────────────────────────────────── */
+.row-item {
+    display: flex; align-items: center; gap: 16px;
+    background: #141008; border: 1px solid #2E2820;
+    border-radius: 7px; padding: 14px 18px; margin-bottom: 8px;
+}
+.row-item .accent { width: 4px; align-self: stretch; border-radius: 2px; flex-shrink: 0; }
+.row-name  { font-size: 22px; font-weight: 800; color: #F0E8D8; }
+.row-sub   { font-size: 20px; color: #6A5E48; margin-top: 3px; }
+.row-sub2  { font-size: 18px; color: #5A5040; margin-top: 2px; }
+
+/* ─── DRAMA ──────────────────────────────────────────────── */
+.drama-banner {
+    background: #1C0C08; border: 1px solid #CC2020;
+    border-left: 5px solid #CC2020;
+    border-radius: 7px; padding: 16px 18px; margin-bottom: 12px;
+}
+.drama-title { font-size: 22px; font-weight: 900; color: #CC2020; margin-bottom: 6px; }
+.drama-desc  { font-size: 19px; color: #E8E0D0; line-height: 1.65; margin-bottom: 10px; }
+
+/* ─── MODAL ──────────────────────────────────────────────── */
+#modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 500; padding: 20px;
+}
+#modal-overlay.hidden { display: none; }
+
+#modal-box {
+    background: #181410; border: 1px solid #4A4238;
+    border-top: 4px solid #CC2020;
+    border-radius: 10px; padding: 32px; width: 100%;
+    max-width: 700px; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.6);
+}
+
+.modal-eyebrow { font-size: 13px; color: #6A5E48; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 5px; }
+.modal-title   { font-size: 28px; font-weight: 900; color: #F0E8D8; margin-bottom: 3px; }
+.modal-sub     { font-size: 17px; color: #6A5E48; margin-bottom: 24px; }
+.modal-label   { font-size: 16px; color: #B0A890; display: block; margin-bottom: 6px; font-weight: 700; }
+.modal-section { margin-bottom: 20px; }
+.modal-preview { background: #1E1A16; border-radius: 7px; padding: 16px; margin: 16px 0; display: flex; gap: 28px; flex-wrap: wrap; }
+.pv-lbl { font-size: 13px; color: #6A5E48; text-transform: uppercase; letter-spacing: 0.1em; }
+.pv-val { font-size: 28px; font-weight: 900; margin-top: 2px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+
+.checkbox-row { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 18px; }
+.checkbox-item { display: flex; gap: 8px; align-items: center; cursor: pointer; font-size: 16px; color: #E8E0D0; }
+.checkbox-item input[type=checkbox] { width: 17px; height: 17px; cursor: pointer; accent-color: #CC2020; }
+
+/* ─── TABLES ─────────────────────────────────────────────── */
+.stn-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+.stn-table th { font-size: 13px; color: #6A5E48; text-transform: uppercase; letter-spacing: 0.08em; text-align: right; padding: 9px 12px; border-bottom: 2px solid #CC2020; }
+.stn-table th:nth-child(2) { text-align: left; }
+.stn-table td { padding: 10px 12px; text-align: right; border-bottom: 1px solid #1E1A16; color: #E8E0D0; }
+.stn-table td:nth-child(2) { text-align: left; }
+.stn-table tr:hover td { background: #1E1A16; }
+.stn-table tr.player-row td { color: #CC2020; font-weight: 800; }
+
+.race-hist-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+.race-hist-table th { font-size: 13px; color: #6A5E48; text-transform: uppercase; letter-spacing: 0.08em; padding: 9px 12px; text-align: left; border-bottom: 2px solid #CC2020; }
+.race-hist-table td { padding: 10px 12px; border-bottom: 1px solid #1E1A16; color: #E8E0D0; }
+.race-hist-table tr:hover td { background: #1E1A16; cursor: pointer; }
+
+/* ─── TRACK ROW ──────────────────────────────────────────── */
+.track-row { display: flex; align-items: center; gap: 10px; background: #141008; border: 1px solid #2E2820; border-radius: 6px; padding: 10px 14px; margin-bottom: 5px; cursor: grab; user-select: none; }
+.track-row.drag-over { border-color: #CC2020; background: #1C0C08; }
+.track-row .drag-handle { color: #3A3228; font-size: 16px; }
+
+/* driver card */
+.driver-card { background: #141008; border: 1px solid #2E2820; border-radius: 7px; padding: 14px 18px; margin-bottom: 7px; display: flex; align-items: center; gap: 14px; }
+.driver-card .dc-name { font-size: 22px; font-weight: 800; color: #F0E8D8; }
+.driver-card .dc-sub  { font-size: 19px; color: #6A5E48; margin-top: 2px; }
+.source-known     { color: #5ECC7B; }
+.source-generated { color: #6A5E48; }
+
+/* misc */
+.spacer { flex: 1; }
+.text-muted  { color: #6A5E48 !important; }
+.text-light  { color: #D0C8B0 !important; }
+.text-bright { color: #F0E8D8 !important; }
+.text-gold   { color: #E8902A !important; }
+.text-green  { color: #5ECC7B !important; }
+.text-red    { color: #FF7070 !important; }
+.text-blue   { color: #6A9AE0 !important; }
+.text-purple { color: #C8A8FF !important; }
+.text-cyan   { color: #5EC8D8 !important; }
+.text-sm  { font-size: 18px; }
+.text-xs  { font-size: 16px; }
+.mt-4  { margin-top: 4px; }  .mt-8  { margin-top: 8px; }
+.mt-12 { margin-top: 12px; } .mt-16 { margin-top: 16px; }
+.mb-8  { margin-bottom: 8px; }  .mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; }
+.flex      { display: flex; align-items: center; gap: 10px; }
+.flex-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.italic { font-style: italic; }
+
+.happy-wrap { width: 70px; }
+.happy-bar  { height: 6px; background: #2E2820; border-radius: 3px; overflow: hidden; }
+.happy-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+
+.graph-wrap { background: #141008; border-radius: 7px; padding: 16px; overflow-x: auto; }
+
+@keyframes shimmer { 0% { background-position: -200% center } 100% { background-position: 200% center } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes spin    { to { transform: rotate(360deg) } }
+    </style>
+</head>
+
+<body>
+
+    <div id="setup-screen">
+        <div class="setup-box">
+            <div style="font-size:11px;letter-spacing:0.35em;color:#94A3B8;text-transform:uppercase;margin-bottom:12px">
+                iRacing Oval Career RPG</div>
+
+            <div class="setup-logo">RACE<br>WEEKEND</div>
+            <div class="setup-sub">Race in iRacing. Enter your results here. Build rivalries, earn fans, climb the
+                ladder.</div>
+            <div style="font-size:11px;color:#475569;margin-top:-8px;margin-bottom:16px;letter-spacing:0.15em;text-transform:uppercase"
+                id="setup-ver"></div>
+            <script>document.getElementById('setup-ver').textContent = typeof APP_VERSION !== 'undefined' ? APP_VERSION : '';</script>
+            <div class="setup-card">
+                <form id="setup-form">
+                    <div
+                        style="font-size:12px;color:#CBD5E1;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.1em">
+                        Your Driver Name</div>
+                    <input id="driver-name-input" type="text" placeholder="Enter your name..." maxlength="28" required
+                        autocomplete="off">
+                    <div
+                        style="font-size:12px;color:#CBD5E1;margin-bottom:6px;margin-top:14px;text-transform:uppercase;letter-spacing:0.1em">
+                        Home State</div>
+                    <select id="driver-state-input"
+                        style="width:100%;margin-bottom:16px;font-size:16px;font-weight:600;text-align:center"></select>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function () {
+                            const sel = document.getElementById('driver-state-input');
+                            if (!sel || sel.options.length > 0) return;
+                            const states = typeof US_STATES !== 'undefined' ? US_STATES : ['NC', 'VA', 'TN', 'GA', 'SC', 'FL', 'TX', 'OH', 'IN', 'KY', 'WI', 'IL', 'PA', 'MI', 'International'];
+                            const names = typeof US_STATE_NAMES !== 'undefined' ? US_STATE_NAMES : {};
+                            const intlRegions = ['Europe', 'Africa', 'Asia', 'South America', 'Central America', 'Australia'];
+                            // US states first
+                            states.filter(s => s !== 'International').forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = (names[s] || s); if (s === 'AL') o.selected = true; sel.appendChild(o); });
+                            // Separator
+                            const sep = document.createElement('option'); sep.disabled = true; sep.textContent = '── International ──'; sel.appendChild(sep);
+                            // International regions
+                            intlRegions.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o); });
+                        });
+                    </script>
+                    <div class="setup-hint">Run your seasons in iRacing offline mode, then come back and enter results.
+                        The app tracks contracts, sponsors, fans, rivals, championship points, repairs, and simulates AI
+                        driver careers in the background.</div>
+
+                    <div style="margin-bottom:16px;">
+                        <div style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12px;color:#D97706;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;user-select:none;" onclick="var p=document.getElementById('track-select-panel');p.style.display=p.style.display==='none'?'block':'none';this.querySelector('.tarrow').textContent=p.style.display==='none'?'▶':'▼';">
+                            <span class="tarrow">▶</span> iRacing Owned Tracks (optional — affects your schedule)
+                        </div>
+                        <div id="track-select-panel" style="display:none;background:#0F172A;border:1px solid #1E293B;border-radius:8px;padding:12px;">
+
+                            <div style="font-size:11px;color:#10B981;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em;">✓ Always Included (free with iRacing)</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;margin-bottom:12px;" id="free-track-list"></div>
+
+                            <div style="font-size:11px;color:#D97706;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em;">Check tracks you own ($)</div>
+                            <div style="max-height:220px;overflow-y:auto;">
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;" id="paid-track-list"></div>
+                            </div>
+                            <div style="font-size:11px;color:#475569;margin-top:10px;">Higher-tier tracks (regional/national/cup) can be managed in the Tracks tab after career start.</div>
+                        </div>
+                    </div>
+                    <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        var freeTracks = [
+                            'Langley Speedway','USA International Speedway','Southern National Motorsports Park',
+                            'South Boston Speedway','Concord Speedway','Oxford Plains Speedway',
+                            'Lanier National Speedway','Thompson Speedway Motorsports Park'
+                        ];
+                        var paidTracks = [
+                            'Five Flags Speedway','Hickory Motor Speedway','New Smyrna Speedway',
+                            'Oswego Speedway','Stafford Motor Speedway','Irwindale Speedway',
+                            'Myrtle Beach Speedway',"Kevin Harvick's Kern Raceway",'The Bullring',
+                            'Lucas Oil Indianapolis Raceway Park','Slinger Speedway',
+                            'Nashville Fairgrounds Speedway'
+                        ];
+                        var fl = document.getElementById('free-track-list');
+                        var pl = document.getElementById('paid-track-list');
+                        if (fl) freeTracks.forEach(function(t) {
+                            var d = document.createElement('div');
+                            d.style.cssText = 'font-size:12px;color:#64748B;padding:2px 0;';
+                            d.textContent = '✓ ' + t;
+                            fl.appendChild(d);
+                        });
+                        if (pl) paidTracks.forEach(function(t) {
+                            var lbl = document.createElement('label');
+                            lbl.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;color:#CBD5E1;cursor:pointer;padding:2px 0;';
+                            var cb = document.createElement('input');
+                            cb.type = 'checkbox';
+                            cb.value = t;
+                            cb.name = 'owned-track';
+                            cb.style.accentColor = '#D97706';
+                            lbl.appendChild(cb);
+                            lbl.appendChild(document.createTextNode(t));
+                            pl.appendChild(lbl);
+                        });
+                    });
+                    </script>
+
+                    <button type="submit" class="btn btn-lg btn-primary btn-full">START CAREER &#8594;</button>
+                </form>
+            </div>
+            <div style="font-size:13px;color:#94A3B8;margin-top:12px">
+                Have a save file?
+                <label style="color:#D97706;cursor:pointer;margin-left:4px">
+                    Import Save
+                    <input id="import-setup" type="file" accept=".json" style="display:none">
+                </label>
+            </div>
+        </div>
+    </div>
+
+   <div id="app">
+        <div id="sidebar">
+            <div id="sidebar-header"></div>
+            <div id="sidebar-stats"></div>
+            <div id="sidebar-nav"></div>
+        </div>
+        <div id="main">
+            <div id="main-header"></div>
+            <div id="content"></div>
+        </div>
+    </div>
+
+    <div id="modal-overlay" class="hidden">
+        <div id="modal-box"></div>
+    </div>
+        <!-- SCRIPTS -->
+</body>
+</html>
