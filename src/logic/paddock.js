@@ -1,4 +1,4 @@
- // roster
+// roster
       function getLuminance(hex) {
             hex = hex.replace('#', '');
             if (hex.length === 3) hex = hex.split('').map(function(c) { return c + c; }).join('');
@@ -99,8 +99,7 @@
                 ['3C1518','A44200','FFFFFF'],['0F3460','533483','E94560'],
                 ['16213E','0F3460','E94560'],['2C3E50','E74C3C','FFFFFF'],
                 ['1B2631','2E4057','FFFFFF'],['283747','AEB6BF','FFFFFF'],
-                // light backgrounds
-                ['F0F0F0','CC2020','1A1A1A'],['FFFFFF','0A3D91','C8AA37'],
+                // light backgrounds — avoid pure white which renders blank
                 ['F5A623','000000','FFFFFF'],['FDE68A','1A1A2E','CC2020'],
                 ['E8F4F8','005A9C','FFD700'],['F0FFF0','006940','FFD700'],
             ];
@@ -150,8 +149,8 @@
 
             var rnd = function(arr) { return arr[Math.floor(Math.random() * arr.length)]; };
             var rndSponsor = function(isPrimary) {
-                if (isPrimary) return Math.random() < 0.72 ? rnd(SPONSOR_IDS) : 0;
-                return Math.random() < 0.42 ? rnd(SPONSOR_IDS) : 0;
+                if (isPrimary) return rnd(SPONSOR_IDS); // always assign a primary sponsor
+                return Math.random() < 0.65 ? rnd(SPONSOR_IDS) : 0;
             };
 
             // track used numbers, no duplicates
