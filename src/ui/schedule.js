@@ -543,12 +543,7 @@
                                                         ),
                                                     ));
                                                 }),
-                                                mkBtn('✕', 'btn btn-xs btn-danger', function() {
-                                                    sched.splice(i, 1);
-                                                    sched.forEach(function(r, idx) { r.round = idx + 1; });
-                                                    saveGame();
-                                                    renderRows();
-                                                }),
+                                                
                                             ),
                                             isBlocked ? h('div', { style: { fontSize: '13px', color: '#64748B', fontStyle: 'italic', marginTop: '2px' } },
                                                 'Already racing in ' + blockedByState + ' this week'
