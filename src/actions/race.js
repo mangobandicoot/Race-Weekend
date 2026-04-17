@@ -523,7 +523,6 @@
             dnfRIn.addEventListener('input', updateRepairHint);
 
             const dqCb = h('input', { type: 'checkbox' });
-            const forceInjuryCb = h('input', { type: 'checkbox' });
             dqCb.addEventListener('change', () => {
                 if (dqCb.checked) { dnfCb.checked = false; dnfRIn.style.display = 'none'; repairHint.style.display = 'none'; }
                 upd();
@@ -926,7 +925,6 @@
                     h('div', { style: { display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '6px' } },
                         h('label', { className: 'checkbox-item' }, dnfCb, h('span', { style: { color: '#EF4444', fontSize: '14px' } }, 'Did Not Finish (DNF)')),
                         h('label', { className: 'checkbox-item' }, dqCb, h('span', { style: { color: '#F97316', fontSize: '14px' } }, 'Disqualified (DQ)')),
-                        h('label', { className: 'checkbox-item' }, forceInjuryCb, h('span', { style: { color: '#EF4444', fontSize: '13px' } }, '⛑️ Force Injury (dev)')),
                     ),
                     dnfRIn,
                     repairHint,
@@ -1070,31 +1068,6 @@
                             closeFinishes,
                             qualPosition: (race && race.qualifying && race.qualifying.position) || null,
                         };
-                        if (forceInjuryCb && forceInjuryCb.checked) {
-                            // Bypass roll — force injury directly
-                            if (!G.playerInjury) {
-                                const racesOut = getInjuryLength();
-                                let subName = generateAIName();
-                                while ((G.drivers || []).find(d => d.name === subName)) subName = generateAIName();
-                                const subDriver = createDriver(subName, rand(35, 65), seriesId, 'generated');
-                                subDriver.substituteFor = G.driverName;
-                                G.drivers.push(subDriver);
-                                G.playerInjury = { racesOut, subName, seriesId, racesRemaining: racesOut };
-                                if (!G.seriesFields[seriesId]) G.seriesFields[seriesId] = {};
-                                if (!G.seriesFields[seriesId][subName]) {
-                                    G.seriesFields[seriesId][subName] = { points: 0, wins: 0, top5s: 0, starts: 0 };
-                                }
-                                G.dramaQueue.push({
-                                    id: 'player_inj_' + uid(),
-                                    title: '📋 You Can\'t Race This Week',
-                                    effect: 'none',
-                                    desc: G.driverName + ' is unavailable and will miss the next ' + racesOut + ' race' + (racesOut > 1 ? 's' : '') + '. ' + subName + ' will substitute. Add ' + subName + ' to your iRacing lineup.',
-                                    valence: 'bad',
-                                });
-                                addLog(G, '📋 [FORCED] Player unavailable — out ' + racesOut + ' races. Sub: ' + subName);
-                                saveGame();
-                            }
-                        }
                         closeModal();
 
                         // DQ: no repairs, but random fine based on series tier
