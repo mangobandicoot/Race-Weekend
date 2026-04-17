@@ -1,0 +1,71 @@
+{
+  "name": "iracing-career-manager",
+  "version": "1.0.0",
+  "description": "iRacing Career Manager — track your career, rivals, and race results",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "build:win": "electron-builder --win",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.iracing.career-manager",
+    "productName": "iRacing Career Manager",
+    "copyright": "Copyright © 2025",
+    "asar": true,
+    "directories": {
+      "output": "dist",
+      "buildResources": "../build-assets",
+      "app": ".."
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "src/**",
+      "fonts/**",
+      "!bridge.py",
+      "!*.spec",
+      "!build/**",
+      "!electron/**",
+      "!dist/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../bridge/bridge.exe",
+        "to": "bridge/bridge.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "iRacing Career Manager",
+      "warningsAsErrors": false
+    },
+    "portable": {
+      "artifactName": "iRacingCareerManager-portable-${version}.exe"
+    },
+    "artifactName": "iRacingCareerManager-setup-${version}.exe"
+  }
+}

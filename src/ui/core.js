@@ -101,6 +101,8 @@ let G = null;
             try {
                 var data = JSON.stringify(G, function(_k, v) { return v === undefined ? null : v; });
                 localStorage.setItem('ft_save', data);
+                // Electron: also persist to userData so saves survive temp folder clears
+                if (typeof window._electronSave === 'function') window._electronSave(data);
                 var kb = Math.round(data.length / 1024);
                 if (kb > 7000) {
                     console.warn('[Save] Warning: save file is ' + kb + 'KB — approaching browser limit');

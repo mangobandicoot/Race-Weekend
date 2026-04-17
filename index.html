@@ -5,16 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Race Weekend — iRacing Career RPG</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Italiana&family=Barlow+Condensed:wght@400;600;700;800;900&family=Share+Tech+Mono&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet" href="fonts/fonts.css">
 <style>
 html { font-size: 14px; }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; overflow: hidden; }
-
-@import url('https://fonts.googleapis.com/css2?family=Italiana&family=Barlow+Condensed:wght@400;600;700;800;900&family=Share+Tech+Mono&display=swap');
 
 body {
     font-family: 'Inter', 'Arial Narrow', Arial, sans-serif;
@@ -9609,6 +9604,8 @@ let G = null;
             try {
                 var data = JSON.stringify(G, function(_k, v) { return v === undefined ? null : v; });
                 localStorage.setItem('ft_save', data);
+                // Electron: also persist to userData so saves survive temp folder clears
+                if (typeof window._electronSave === 'function') window._electronSave(data);
                 var kb = Math.round(data.length / 1024);
                 if (kb > 7000) {
                     console.warn('[Save] Warning: save file is ' + kb + 'KB — approaching browser limit');
@@ -13900,6 +13897,11 @@ let G = null;
             const f = document.createDocumentFragment();
             f.appendChild(h('div', { className: 'page-title' }, 'Settings'));
 
+            // iRacing bridge panel — only show in Electron
+            if (typeof window !== 'undefined' && window.electronBridge) {
+                f.appendChild(renderSdkPanel());
+            }
+
             // driver profile + career info side by side
             const bioIn = h('textarea', { rows: 2, placeholder: 'Short bio or notes (optional)...', style: { width: '100%', marginTop: '6px' } });
             bioIn.value = G.playerBio || '';
@@ -13992,7 +13994,16 @@ let G = null;
                             h('div', { className: 'modal-sub' }, 'This cannot be undone. All progress will be lost.'),
                             h('div', { className: 'modal-actions' },
                                 mkBtn('Cancel', 'btn btn-ghost', closeModal),
-                                mkBtn('Yes, Start Over', 'btn btn-danger', () => { localStorage.removeItem('ft_save'); location.reload(); }),
+                                mkBtn('Yes, Start Over', 'btn btn-danger', () => {
+                                    G = null;
+                                    localStorage.removeItem('ft_save');
+                                    sessionStorage.setItem('_forceSetup', '1');
+                                    if (typeof window._electronDelete === 'function') {
+                                        window._electronDelete().then(function() { location.reload(); }).catch(function() { location.reload(); });
+                                    } else {
+                                        location.reload();
+                                    }
+                                }),
                             )
                         ));
                     }),
@@ -14175,7 +14186,6 @@ let G = null;
                     });
                 })(),
             ));
-
             return f;
         }
 
@@ -17689,7 +17699,7 @@ let G = null;
                     .filter(function(n) { return !localNames.includes(n); })
                     .map(function(n) { return { name: n }; });
 
-                saveGame(); showGame();
+                saveGame(); showGame(); setTimeout(maybeShowTutorial, 500);
             });
             const importEl = $('import-setup');
             if (importEl) importEl.addEventListener('change', e => { if (e.target.files[0]) importSave(e.target.files[0]); });
@@ -17699,7 +17709,30 @@ let G = null;
                     closeModal();
                 }
             });
-            if (loadGame()) { showGame(); setTimeout(maybeShowTutorial, 300); } else showSetup();
+            // Electron: load from userData first, then fall back to localStorage
+            function _boot() {
+                // forceSetup flag survives reload, means user clicked Start Over
+                if (sessionStorage.getItem('_forceSetup')) {
+                    sessionStorage.removeItem('_forceSetup');
+                    localStorage.removeItem('ft_save');
+                    if (typeof window._electronDelete === 'function') window._electronDelete();
+                    showSetup();
+                    return;
+                }
+                if (loadGame()) { showGame(); setTimeout(maybeShowTutorial, 2500); } else showSetup();
+            }
+            if (typeof window._electronLoad === 'function') {
+                window._electronLoad().then(function(data) {
+                    if (data && data.length > 10) {
+                        try { localStorage.setItem('ft_save', data); } catch(e) {}
+                    } else {
+                        localStorage.removeItem('ft_save');
+                    }
+                    _boot();
+                }).catch(function() { _boot(); });
+            } else {
+                _boot();
+            }
             setInterval(() => { if (G) saveGame(); }, 60000);
         });
 
@@ -18478,11 +18511,7 @@ function renderSdkPanel() {
         ),
 
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-            mkBtn(
-                isConnected ? '📥 Import Last Race Result' : '📥 Check for Result',
-                'btn btn-secondary', sdkInjectResult
-            ),
-            mkBtn('🔄', 'btn btn-sm btn-ghost', function() { sdkPoll(); setTimeout(render, 400); }),
+            mkBtn('🔄 Refresh', 'btn btn-sm btn-ghost', function() { sdkPoll(); setTimeout(render, 400); }),
             isRacing ? mkBtn('🟡 Yellow', 'btn btn-sm btn-warn', function() {
                 fetch(SDK_URL + '/cmd/yellow', { method: 'POST' })
                     .then(function() { showSummaryToast('🟡 Full course yellow sent', '#F59E0B', 'SDK'); })
@@ -18498,18 +18527,7 @@ function renderSdkPanel() {
         isConnected && _sdkStatus.session_finished ? h('div', {
             style: { marginTop: '10px', background: '#060A10', borderRadius: '8px',
                      padding: '10px 14px', fontSize: '13px', color: '#10B981', border: '1px solid #10B98144' }
-        }, '✅ Race finished — click Import to load results.') : null,
-
-        h('div', { style: { fontSize: '11px', color: '#374151', marginTop: '10px' } },
-            'localhost:54321 · ',
-            h('span', { style: { cursor: 'pointer', color: '#3B82F6' },
-                onClick: function() { window.open('http://localhost:54321/status'); }
-            }, 'status'),
-            ' · ',
-            h('span', { style: { cursor: 'pointer', color: '#3B82F6' },
-                onClick: function() { window.open('http://localhost:54321/flags'); }
-            }, 'live flags'),
-        ),
+        }, '✅ Race finished — result ready to import from the Schedule page.') : null,
     );
 }
 </script>

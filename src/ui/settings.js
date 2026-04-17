@@ -3,6 +3,11 @@
             const f = document.createDocumentFragment();
             f.appendChild(h('div', { className: 'page-title' }, 'Settings'));
 
+            // iRacing bridge panel — only show in Electron
+            if (typeof window !== 'undefined' && window.electronBridge) {
+                f.appendChild(renderSdkPanel());
+            }
+
             // driver profile + career info side by side
             const bioIn = h('textarea', { rows: 2, placeholder: 'Short bio or notes (optional)...', style: { width: '100%', marginTop: '6px' } });
             bioIn.value = G.playerBio || '';
@@ -95,7 +100,16 @@
                             h('div', { className: 'modal-sub' }, 'This cannot be undone. All progress will be lost.'),
                             h('div', { className: 'modal-actions' },
                                 mkBtn('Cancel', 'btn btn-ghost', closeModal),
-                                mkBtn('Yes, Start Over', 'btn btn-danger', () => { localStorage.removeItem('ft_save'); location.reload(); }),
+                                mkBtn('Yes, Start Over', 'btn btn-danger', () => {
+                                    G = null;
+                                    localStorage.removeItem('ft_save');
+                                    sessionStorage.setItem('_forceSetup', '1');
+                                    if (typeof window._electronDelete === 'function') {
+                                        window._electronDelete().then(function() { location.reload(); }).catch(function() { location.reload(); });
+                                    } else {
+                                        location.reload();
+                                    }
+                                }),
                             )
                         ));
                     }),
@@ -278,7 +292,6 @@
                     });
                 })(),
             ));
-
             return f;
         }
 

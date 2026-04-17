@@ -275,11 +275,7 @@ function renderSdkPanel() {
         ),
 
         h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-            mkBtn(
-                isConnected ? '📥 Import Last Race Result' : '📥 Check for Result',
-                'btn btn-secondary', sdkInjectResult
-            ),
-            mkBtn('🔄', 'btn btn-sm btn-ghost', function() { sdkPoll(); setTimeout(render, 400); }),
+            mkBtn('🔄 Refresh', 'btn btn-sm btn-ghost', function() { sdkPoll(); setTimeout(render, 400); }),
             isRacing ? mkBtn('🟡 Yellow', 'btn btn-sm btn-warn', function() {
                 fetch(SDK_URL + '/cmd/yellow', { method: 'POST' })
                     .then(function() { showSummaryToast('🟡 Full course yellow sent', '#F59E0B', 'SDK'); })
@@ -295,17 +291,6 @@ function renderSdkPanel() {
         isConnected && _sdkStatus.session_finished ? h('div', {
             style: { marginTop: '10px', background: '#060A10', borderRadius: '8px',
                      padding: '10px 14px', fontSize: '13px', color: '#10B981', border: '1px solid #10B98144' }
-        }, '✅ Race finished — click Import to load results.') : null,
-
-        h('div', { style: { fontSize: '11px', color: '#374151', marginTop: '10px' } },
-            'localhost:54321 · ',
-            h('span', { style: { cursor: 'pointer', color: '#3B82F6' },
-                onClick: function() { window.open('http://localhost:54321/status'); }
-            }, 'status'),
-            ' · ',
-            h('span', { style: { cursor: 'pointer', color: '#3B82F6' },
-                onClick: function() { window.open('http://localhost:54321/flags'); }
-            }, 'live flags'),
-        ),
+        }, '✅ Race finished — result ready to import from the Schedule page.') : null,
     );
 }

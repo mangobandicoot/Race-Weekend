@@ -286,7 +286,7 @@
                     .filter(function(n) { return !localNames.includes(n); })
                     .map(function(n) { return { name: n }; });
 
-                saveGame(); showGame();
+                saveGame(); showGame(); setTimeout(maybeShowTutorial, 500);
             });
             const importEl = $('import-setup');
             if (importEl) importEl.addEventListener('change', e => { if (e.target.files[0]) importSave(e.target.files[0]); });
@@ -296,7 +296,30 @@
                     closeModal();
                 }
             });
-            if (loadGame()) { showGame(); setTimeout(maybeShowTutorial, 300); } else showSetup();
+            // Electron: load from userData first, then fall back to localStorage
+            function _boot() {
+                // forceSetup flag survives reload, means user clicked Start Over
+                if (sessionStorage.getItem('_forceSetup')) {
+                    sessionStorage.removeItem('_forceSetup');
+                    localStorage.removeItem('ft_save');
+                    if (typeof window._electronDelete === 'function') window._electronDelete();
+                    showSetup();
+                    return;
+                }
+                if (loadGame()) { showGame(); setTimeout(maybeShowTutorial, 2500); } else showSetup();
+            }
+            if (typeof window._electronLoad === 'function') {
+                window._electronLoad().then(function(data) {
+                    if (data && data.length > 10) {
+                        try { localStorage.setItem('ft_save', data); } catch(e) {}
+                    } else {
+                        localStorage.removeItem('ft_save');
+                    }
+                    _boot();
+                }).catch(function() { _boot(); });
+            } else {
+                _boot();
+            }
             setInterval(() => { if (G) saveGame(); }, 60000);
         });
 

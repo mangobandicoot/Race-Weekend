@@ -1,139 +1,178 @@
-// Race Weekend — Electron main.js
-// Spawns the Python bridge as a child process on startup
-
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 
-let mainWindow = null;
+function getSavePath() {
+  return path.join(app.getPath('userData'), 'race-weekend-save.json');
+}
+
+// ─── Bridge process handle ───────────────────────────────────────────────────
 let bridgeProcess = null;
+let bridgeEnabled = true;
+let mainWindow = null;
 
 function getBridgePath() {
-    // In production (packaged): bridge.exe sits next to the app
-    // In dev: look for raceweekend_bridge.exe or raceweekend_bridge.py
-    const exeDir = path.dirname(process.execPath);
-    const candidates = [
-        path.join(exeDir, 'raceweekend_bridge.exe'),
-        path.join(exeDir, 'bridge', 'raceweekend_bridge.exe'),
-        path.join(__dirname, 'raceweekend_bridge.exe'),
-        path.join(__dirname, 'raceweekend_bridge.py'), // dev fallback
-    ];
-    for (const p of candidates) {
-        if (fs.existsSync(p)) return p;
-    }
-    return null;
-}
-
-function getPrefsPath() {
-    return path.join(app.getPath('userData'), 'rw-prefs.json');
-}
-
-function readPrefs() {
-    try {
-        return JSON.parse(fs.readFileSync(getPrefsPath(), 'utf8'));
-    } catch (e) {
-        return { bridgeEnabled: true }; // default on
-    }
-}
-
-function writePrefs(prefs) {
-    try {
-        fs.writeFileSync(getPrefsPath(), JSON.stringify(prefs, null, 2));
-    } catch (e) {
-        console.error('[Main] Could not write prefs:', e);
-    }
+  // In production (packaged), bridge.exe is in resources/bridge/
+  // In dev, it's at ../bridge/bridge.exe relative to main.js
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'bridge', 'bridge.exe');
+  }
+  return path.join(__dirname, 'bridge', 'bridge.exe');
 }
 
 function startBridge() {
-    const prefs = readPrefs();
-    if (!prefs.bridgeEnabled) {
-        console.log('[Main] Bridge disabled in preferences — skipping');
-        return;
+  if (!bridgeEnabled) return;
+  if (bridgeProcess) return; // already running
+
+  const bridgePath = getBridgePath();
+  if (!fs.existsSync(bridgePath)) {
+    console.warn('[Bridge] bridge.exe not found at:', bridgePath);
+    return;
+  }
+
+  console.log('[Bridge] Starting:', bridgePath);
+  bridgeProcess = spawn(bridgePath, [], {
+    detached: false,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true, // no console window popping up
+  });
+
+  bridgeProcess.stdout.on('data', (d) => console.log('[Bridge]', d.toString().trim()));
+  bridgeProcess.stderr.on('data', (d) => console.warn('[Bridge ERR]', d.toString().trim()));
+
+  bridgeProcess.on('exit', (code) => {
+    console.log('[Bridge] Exited with code', code);
+    bridgeProcess = null;
+    // Auto-restart after 3s unless app is quitting
+    if (!app.isQuitting && bridgeEnabled) {
+      setTimeout(startBridge, 3000);
     }
+  });
 
-    const bridgePath = getBridgePath();
-    if (!bridgePath) {
-        console.log('[Main] Bridge not found — SDK features disabled');
-        return;
-    }
-
-    const isPy = bridgePath.endsWith('.py');
-    const cmd = isPy ? 'python' : bridgePath;
-    const args = isPy ? [bridgePath] : [];
-
-    console.log(`[Main] Starting bridge: ${bridgePath}`);
-    bridgeProcess = spawn(cmd, args, {
-        windowsHide: true,
-        detached: false,
-        stdio: 'ignore',  // fully silent — no stdout/stderr piped
-    });
-
-    bridgeProcess.on('exit', (code) => {
-        console.log(`[Main] Bridge exited with code ${code}`);
-        bridgeProcess = null;
-    });
+  bridgeProcess.on('error', (err) => {
+    console.error('[Bridge] Failed to start:', err.message);
+    bridgeProcess = null;
+  });
 }
 
 function stopBridge() {
-    if (bridgeProcess) {
-        bridgeProcess.kill();
-        bridgeProcess = null;
-    }
+  if (bridgeProcess) {
+    bridgeProcess.kill();
+    bridgeProcess = null;
+  }
 }
 
+// ─── Window creation ─────────────────────────────────────────────────────────
 function createWindow() {
-    mainWindow = new BrowserWindow({
-        width: 1280,
-        height: 900,
-        minWidth: 768,
-        minHeight: 600,
-        backgroundColor: '#060A10',
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-            preload: path.join(__dirname, 'preload.js'),
-        },
-        icon: path.join(__dirname, 'icon.ico'),
-        title: 'Race Weekend',
-    });
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 900,
+    minWidth: 900,
+    minHeight: 600,
+    backgroundColor: '#0B0F1A', // match app dark bg, no white flash
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      // Allow localhost fetch for bridge communication
+      webSecurity: true,
+    },
+    autoHideMenuBar: true, // hide menu bar but keep accessible via Alt
+    title: 'iRacing Career Manager',
+  });
 
-    mainWindow.loadFile('index.html');
-    mainWindow.setMenuBarVisibility(false);
+  // Load the app — index.html is always next to main.js
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
-    mainWindow.on('closed', () => {
-        mainWindow = null;
-    });
+  // Open DevTools in dev mode
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  // Open external links in default browser, not electron
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://localhost')) return { action: 'allow' };
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  mainWindow.on('closed', () => { mainWindow = null; });
 }
 
-const { ipcMain } = require('electron');
+// ─── IPC handlers (exposed to renderer via preload) ──────────────────────────
+ipcMain.handle('bridge:getEnabled', () => bridgeEnabled);
 
-ipcMain.handle('get-bridge-enabled', () => {
-    return readPrefs().bridgeEnabled;
-});
-
-ipcMain.handle('set-bridge-enabled', (event, enabled) => {
-    const prefs = readPrefs();
-    prefs.bridgeEnabled = !!enabled;
-    writePrefs(prefs);
-    if (enabled && !bridgeProcess) {
-        startBridge();
-    } else if (!enabled && bridgeProcess) {
-        stopBridge();
-    }
-    return prefs.bridgeEnabled;
-});
-
-app.whenReady().then(() => {
+ipcMain.handle('bridge:setEnabled', (_, val) => {
+  bridgeEnabled = !!val;
+  if (bridgeEnabled) {
     startBridge();
-    createWindow();
+  } else {
+    stopBridge();
+  }
+  return bridgeEnabled;
 });
 
-app.on('window-all-closed', () => {
-    stopBridge();
-    app.quit();
+ipcMain.handle('bridge:getStatus', () => ({
+  running: !!bridgeProcess,
+  pid: bridgeProcess ? bridgeProcess.pid : null,
+}));
+
+ipcMain.handle('bridge:restart', () => {
+  stopBridge();
+  setTimeout(startBridge, 500);
+  return true;
+});
+
+// ─── Save/Load handlers (persist to userData, survives app updates) ───────────
+ipcMain.handle('save:write', (_, data) => {
+  try {
+    fs.writeFileSync(getSavePath(), data, 'utf8');
+    return true;
+  } catch (e) {
+    console.error('[Save] Write failed:', e.message);
+    return false;
+  }
+});
+
+ipcMain.handle('save:read', () => {
+  try {
+    const p = getSavePath();
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
+    return null;
+  } catch (e) {
+    console.error('[Save] Read failed:', e.message);
+    return null;
+  }
+});
+
+ipcMain.handle('save:delete', () => {
+  try {
+    const p = getSavePath();
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+    return true;
+  } catch (e) {
+    console.error('[Save] Delete failed:', e.message);
+    return false;
+  }
+});
+
+// ─── App lifecycle ────────────────────────────────────────────────────────────
+app.whenReady().then(() => {
+  createWindow();
+  startBridge();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
 });
 
 app.on('before-quit', () => {
-    stopBridge();
+  app.isQuitting = true;
+  stopBridge();
+});
+
+app.on('window-all-closed', () => {
+  stopBridge();
+  app.quit(); // Windows: always quit when window closes
 });
