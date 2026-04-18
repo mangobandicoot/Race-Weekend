@@ -29,9 +29,10 @@ Race Weekend is a career management app for iRacing's AI racing mode. You race i
 
 1. Download the latest release from the [Releases](https://github.com/mangobandicoot/Race-Weekend/releases) page
 2. Run `RaceWeekend-setup.exe` or use the portable version
-3. Create a career in Race Weekend and export your roster
-4. In iRacing, go to AI Single Player and import the roster file
-5. Race, then come back and enter your result
+3. Enter your name exactly as it appears in iRacing and choose your home region to weigh your schedule toward local tracks
+4. Sign a contract and head to the Roster page to export your field for the week
+5. In iRacing, create an AI race, import the roster file, and set up your session how you want or following the generated schedule
+6. Race, then come back and enter your result
 
 ## Requirements
 
