@@ -35,7 +35,7 @@ The app cannot automatically send rosters to each race, so they have to be downl
 
 Likewise, results must be manually copied and pasted from the "view results" after the race ends. While the bridge can detect the finish order, it lacks the information to register close races or incidents with other drivers. I explored using the bridge to detect results automatically but removed it due to these limitations. It may be possible to export the race .json and have the app detect it from a folder automatically, but that's not something I explored.
 
-iRacing only has spec cars, meaning all cars are 100% drivable before races and cannot be influenced by other apps. The "repair damage" pop-up after the race will show damage that doesn't transmit to iRacing, but instead untreated damage just has a chance of post-race inspection failing in Race Weekend, triggering a DQ. So while you can get away with not repairing damage, the more it goes untreated, the higher the chance of DQ.
+iRacing only has spec cars, meaning all cars are 100% drivable before races and cannot be influenced by other apps. The "repair damage" pop-up after the race will show damage that doesn't transmit to iRacing. This damage also doesnt come from iRacing, but instead uses natural degredation of parts each race. Incidents reported after each race also contribute to damage numhers, so driving hard but careful pays off. Untreated damage has a chance of post-race inspection failing in Race Weekend, triggering a DQ. So while you can get away with not repairing damage, the more it goes untreated, the higher the chance of DQ.
 
 ## Getting started
 
