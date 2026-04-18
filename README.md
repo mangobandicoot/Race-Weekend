@@ -1,6 +1,6 @@
 # Race Weekend — iRacing Career RPG
 
-__Screenshots__ • __Download__ • __Report a Bug__ • __Request a Feature__
+
 
 ---
 
