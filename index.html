@@ -5145,7 +5145,7 @@ const AI_FIRST_FEMALE = [
         }
 
 // ═══ src/logic/paddock.js ═══
- // roster
+// roster
       function getLuminance(hex) {
             hex = hex.replace('#', '');
             if (hex.length === 3) hex = hex.split('').map(function(c) { return c + c; }).join('');
@@ -5233,7 +5233,7 @@ const AI_FIRST_FEMALE = [
             // dark bg = light numbers, light bg = dark numbers
             var PALETTES = [
                 ['ED1C24','FFFFFF','000000'],['0A3D91','FFFFFF','C8AA37'],
-                ['231F20','ED1C24','FFFFFF'],['006940','FFFFFF','FFD700'],
+                ['006940','FFFFFF','FFD700'],
                 ['FF6B00','000000','FFFFFF'],['4B0082','FFFFFF','FFD700'],
                 ['8B0000','FFFFFF','C0C0C0'],['005A9C','FFD700','FFFFFF'],
                 ['2D6A2D','FFFFFF','FFD700'],['1A1A2E','E94560','FFFFFF'],
@@ -5246,14 +5246,23 @@ const AI_FIRST_FEMALE = [
                 ['3C1518','A44200','FFFFFF'],['0F3460','533483','E94560'],
                 ['16213E','0F3460','E94560'],['2C3E50','E74C3C','FFFFFF'],
                 ['1B2631','2E4057','FFFFFF'],['283747','AEB6BF','FFFFFF'],
-                // light backgrounds
-                ['F0F0F0','CC2020','1A1A1A'],['FFFFFF','0A3D91','C8AA37'],
-                ['F5A623','000000','FFFFFF'],['FDE68A','1A1A2E','CC2020'],
-                ['E8F4F8','005A9C','FFD700'],['F0FFF0','006940','FFD700'],
+                // light backgrounds removed — iRacing renders them as white
             ];
 
             // car designs 0-25 confirmed valid
-            var CAR_DESIGNS   = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25];
+            var CAR_DESIGNS_BY_SERIES = {
+    mini_stock:       [0,1,2,3,4,5,7,8,11,12,13,15,17,19,20,21,22,23],
+    street_stock:     [1,2,3,4,5,7,8,9,10,11,15,16,17,19,20,21,23],
+    super_late_model: [1,2,3,4,5,6,7,8,9,12,14,15,16,17,18,19,20,21,22,23],
+    late_model_stock: [0,1,2,3,4,5,6,7,8,10,11,13,14,15,16,17,18,19,20,21,22,23,24,25],
+    arca_menards:     [0,1,2,3,4,5,6,8,9,11,13,15,16,17,18,20,21,23],
+    nascar_trucks:    [0,1,2,3,4,5,8,9,10,11,12,13,14,15,16,17,18,20,21,22,25],
+    nascar_xfinity:   [2,4,5,6,7,8,9,11,13,15,16,17,18,19,21,22,23,25],
+    nascar_cup:       [1,2,4,5,6,8,11,12,13,15,16,17,20,21,22,23],
+    legends:          [0,1,2,3,4,5,6,7,8,9,10,11,15,16,17,19,20,22,23],
+    sk_modified:      [1,2,3,4,5,6,7,8,9,10,11,12,13,15,16,19,20,21,23,24],
+};
+var CAR_DESIGNS = CAR_DESIGNS_BY_SERIES[seriesId] || CAR_DESIGNS_BY_SERIES.mini_stock;
             // suit designs 1-36
             var SUIT_DESIGNS  = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36];
             // helmets 0-68
@@ -5279,8 +5288,6 @@ const AI_FIRST_FEMALE = [
                 '3,1,000000,FFFFFF,000000',
                 '11,2,FFD65A,00050B,FFFFFF',
                 '46,2,E5242C,F5A327,0A0A0A',
-                '5,2,FFFFFF,007AC3,007AC3',
-                '52,2,FFFFFF,FFFFFF,000000',
             ];
             var NUMBER_DESIGNS_ON_LIGHT = [
                 '1,1,231f20,ffffff,ffffff',
@@ -5297,21 +5304,25 @@ const AI_FIRST_FEMALE = [
 
             var rnd = function(arr) { return arr[Math.floor(Math.random() * arr.length)]; };
             var rndSponsor = function(isPrimary) {
-                if (isPrimary) return Math.random() < 0.72 ? rnd(SPONSOR_IDS) : 0;
-                return Math.random() < 0.42 ? rnd(SPONSOR_IDS) : 0;
+                if (isPrimary) return rnd(SPONSOR_IDS); // always assign a primary sponsor
+                return Math.random() < 0.65 ? rnd(SPONSOR_IDS) : 0;
             };
 
             // track used numbers, no duplicates
             var usedNumbers = new Set();
-            var nextNum = 1;
+// Reserve the player's car number so AI doesn't get assigned it
+if (G.reservedCarNumber) usedNumbers.add(String(G.reservedCarNumber));
+var nextNum = 1;
             var getNumber = function(preferred) {
-                var n = preferred ? String(preferred) : null;
-                if (n && !usedNumbers.has(n)) { usedNumbers.add(n); return n; }
-                while (usedNumbers.has(String(nextNum))) nextNum++;
-                var assigned = String(nextNum++);
-                usedNumbers.add(assigned);
-                return assigned;
-            };
+    var n = preferred ? String(preferred) : null;
+    // Cap at 99 — numbers above that are invalid in most iRacing series
+    if (n && parseInt(n) <= 99 && !usedNumbers.has(n)) { usedNumbers.add(n); return n; }
+    while (usedNumbers.has(String(nextNum)) || nextNum > 99) nextNum++;
+    if (nextNum > 99) nextNum = 1; // wrap around if somehow exhausted
+    var assigned = String(nextNum++);
+    usedNumbers.add(assigned);
+    return assigned;
+};
 
             // merge base + guests
             var allEntries = baseDrivers.map(function(d) {
@@ -5342,7 +5353,17 @@ const AI_FIRST_FEMALE = [
             }
 
             var rosterDrivers = allEntries.map(function(entry, i) {
-                var pal = rnd(PALETTES);
+                var pal;
+var _attempts = 0;
+do {
+    pal = rnd(PALETTES);
+    var _h = pal[0];
+    var _r = parseInt(_h.slice(0,2),16)/255;
+    var _g = parseInt(_h.slice(2,4),16)/255;
+    var _b = parseInt(_h.slice(4,6),16)/255;
+    var _lum = 0.2126*_r + 0.7152*_g + 0.0722*_b;
+    _attempts++;
+} while ((_lum < 0.05 || _lum > 0.85) && _attempts < 20);
                 var lum = getLuminance(pal[0]);
                 // < 0.35 dark bg, >= 0.35 light bg
                 var numDesign = lum < 0.35
@@ -5351,7 +5372,7 @@ const AI_FIRST_FEMALE = [
                 var stats = entry.stats;
                 return {
                     driverName:        entry.name,
-                    carDesign:         rnd(CAR_DESIGNS) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
+                    carDesign: (entry.isGuest ? '1' : rnd(CAR_DESIGNS)) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
                     carNumber:         getNumber(entry.isGuest ? null : entry.carNumber),
                     suitDesign:        rnd(SUIT_DESIGNS) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
                     helmetDesign:      rnd(HELMET_DESIGNS) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
@@ -5372,7 +5393,7 @@ const AI_FIRST_FEMALE = [
                 };
             });
 
-            var label = (extraDrivers && extraDrivers.length) ? 'premier_week' : 'roster';
+            var label = 'roster';
             var json = JSON.stringify({ drivers: rosterDrivers }, null, '\t');
             var blob = new Blob([json], { type: 'application/json' });
             var url = URL.createObjectURL(blob);
@@ -10126,6 +10147,21 @@ let G = null;
                     h('div', null,
                         h('div', { className: 'mh-label' }, 'Form'),
                         h('div', { className: 'mh-value', style: { color: confColor, fontSize: '15px', fontFamily: 'inherit' } }, confLabel),
+                    )
+                ));
+            }
+
+            // Bridge status in header — only in Electron
+            if (typeof window !== 'undefined' && window.electronBridge) {
+                var _isRunning = _sdkStatus && _sdkStatus.checked && !_sdkStatus.error;
+                var _isConnected = _sdkStatus && _sdkStatus.connected;
+                var _bColor = !_isRunning ? '#EF4444' : _isConnected ? '#10B981' : '#F59E0B';
+                var _bIcon = !_isRunning ? '🔴' : _isConnected ? '🟢' : '🟡';
+                var _bText = !_isRunning ? 'Bridge offline' : _isConnected ? (_sdkStatus.track || 'iRacing connected') : 'Bridge running';
+                sections.push(h('div', { className: 'mh-section', style: { cursor: 'pointer' }, onClick: function() { setTab('settings'); } },
+                    h('div', null,
+                        h('div', { className: 'mh-label' }, '🔌 Bridge'),
+                        h('div', { className: 'mh-value', style: { color: _bColor, fontSize: '13px' } }, _bIcon + ' ' + _bText),
                     )
                 ));
             }
@@ -18238,6 +18274,11 @@ let G = null;
 var SDK_URL = 'http://localhost:54321';
 var _sdkStatus = { connected: false, checked: false };
 var _sdkPollInterval = null;
+
+// Auto-start polling when running in Electron
+if (typeof window !== 'undefined' && window.electronBridge) {
+    setTimeout(function() { sdkStartPolling(); }, 2000);
+}
 
 function sdkPoll() {
     fetch(SDK_URL + '/status')

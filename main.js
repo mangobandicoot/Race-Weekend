@@ -24,6 +24,11 @@ function getBridgePath() {
 function startBridge() {
   if (!bridgeEnabled) return;
   if (bridgeProcess) return; // already running
+  // Kill any orphaned bridge processes from previous sessions
+  try {
+    const { execSync } = require('child_process');
+    execSync('taskkill /F /IM bridge.exe /T', { stdio: 'ignore' });
+  } catch(e) { /* no orphans, that's fine */ }
 
   const bridgePath = getBridgePath();
   if (!fs.existsSync(bridgePath)) {

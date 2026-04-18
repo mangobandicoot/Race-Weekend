@@ -3,6 +3,11 @@ var SDK_URL = 'http://localhost:54321';
 var _sdkStatus = { connected: false, checked: false };
 var _sdkPollInterval = null;
 
+// Auto-start polling when running in Electron
+if (typeof window !== 'undefined' && window.electronBridge) {
+    setTimeout(function() { sdkStartPolling(); }, 2000);
+}
+
 function sdkPoll() {
     fetch(SDK_URL + '/status')
         .then(function(r) { return r.json(); })

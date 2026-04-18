@@ -627,6 +627,21 @@ let G = null;
                 ));
             }
 
+            // Bridge status in header — only in Electron
+            if (typeof window !== 'undefined' && window.electronBridge) {
+                var _isRunning = _sdkStatus && _sdkStatus.checked && !_sdkStatus.error;
+                var _isConnected = _sdkStatus && _sdkStatus.connected;
+                var _bColor = !_isRunning ? '#EF4444' : _isConnected ? '#10B981' : '#F59E0B';
+                var _bIcon = !_isRunning ? '🔴' : _isConnected ? '🟢' : '🟡';
+                var _bText = !_isRunning ? 'Bridge offline' : _isConnected ? (_sdkStatus.track || 'iRacing connected') : 'Bridge running';
+                sections.push(h('div', { className: 'mh-section', style: { cursor: 'pointer' }, onClick: function() { setTab('settings'); } },
+                    h('div', null,
+                        h('div', { className: 'mh-label' }, '🔌 Bridge'),
+                        h('div', { className: 'mh-value', style: { color: _bColor, fontSize: '13px' } }, _bIcon + ' ' + _bText),
+                    )
+                ));
+            }
+
             sections.forEach(s => mh.appendChild(s));
         }
 
