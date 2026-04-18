@@ -1,7 +1,7 @@
 {
-  "name": "iracing-career-manager",
+  "name": "race-weekend",
   "version": "1.0.0",
-  "description": "iRacing Career Manager — track your career, rivals, and race results",
+  "description": "iRacing Career Manager",
   "main": "main.js",
   "private": true,
   "scripts": {
@@ -15,8 +15,8 @@
   },
   "build": {
     "appId": "com.iracing.career-manager",
-    "productName": "iRacing Career Manager",
-    "copyright": "Copyright © 2025",
+    "productName": "Race Weekend",
+    "copyright": "Copyright © 2026",
     "asar": true,
     "directories": {
       "output": "dist",
@@ -42,6 +42,7 @@
       }
     ],
     "win": {
+      "icon": "../build-assets/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -60,12 +61,12 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "iRacing Career Manager",
+      "shortcutName": "Race Weekend",
       "warningsAsErrors": false
     },
     "portable": {
-      "artifactName": "iRacingCareerManager-portable-${version}.exe"
+      "artifactName": "RaceWeekend-portable-${version}.exe"
     },
-    "artifactName": "iRacingCareerManager-setup-${version}.exe"
+    "artifactName": "RaceWeekend-setup-${version}.exe"
   }
 }
