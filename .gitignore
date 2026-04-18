@@ -1,0 +1,7 @@
+electron/dist/
+electron/node_modules/
+node_modules/
+build/
+bridge/bridge.exe
+*.blockmap
+*.exe
