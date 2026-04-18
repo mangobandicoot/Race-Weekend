@@ -36,6 +36,7 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s  %(message)s',
     datefmt='%H:%M:%S',
+    encoding='utf-8',
 )
 _orig_print = builtins.print
 def print(*args, **kwargs):

@@ -6,7 +6,7 @@ __Screenshots__ • __Download__ • __Report a Bug__ • __Request a Feature__
 
 Race in iRacing against AI drivers. Start in Mini Stocks and work your way up through Late Models, Trucks, and Xfinity before reaching Cup.
 
-Race Weekend is a career management app for iRacing's AI racing mode. You race in iRacing, enter your results, and the game tracks everything from rivalries, reputation, contracts, championships, and a world that keeps moving whether you're winning or not.
+Race Weekend is a career management app for iRacing's AI racing mode. You race in iRacing, enter your results, and the game tracks everything from rivalries, reputation, contracts, championships, and a world that keeps moving whether you're winning or not. Instead of trying to get the app to influence what iRacing does, I decided that iRacing should influence how Race Weekend works.
 
 ## Highlights
 
@@ -25,6 +25,18 @@ Race Weekend is a career management app for iRacing's AI racing mode. You race i
 ![Rivals](screenshots/rivals.png)
 ![In-Game](screenshots/livries.png)
 
+## Limitations
+
+Currently, the limitations are:
+
+iRacing doesn't export much useful telemetry, so yellow and black flags are either random, or using math to estimate when there should be a flag. Contact detection watches for sudden speed drops combined with steering spikes. If a car loses speed quickly and jerks the wheel at the same time, it logs a contact event. Enough contacts on the same car can trigger a flag. Player mechanical failure actually uses real RPM telemetry from your car to build stress. Money shifts and running at redline accumulate stress. This is the one place real telemetry is used, but other random factors could still trigger a failure. iRacing doesn't offer an option to inject a "meatball flag", so the app will force a DQ in place of a DNF when damage become critical and race-ending.
+
+The app cannot automatically send rosters to each race, so they have to be downloaded before each race, which will remove drivers skipping that week, or add drivers who are joining from other series. Downloading a fresh roster each week is the simplest approach, as it automatically handles drivers skipping weeks or guests joining from other series.
+
+Likewise, results must be manually copied and pasted from the "view results" after the race ends. While the bridge can detect the finish order, it lacks the information to register close races or incidents with other drivers. I explored using the bridge to detect results automatically but removed it due to these limitations. It may be possible to export the race .json and have the app detect it from a folder automatically, but that's not something I explored.
+
+iRacing only has spec cars, meaning all cars are 100% drivable before races and cannot be influenced by other apps. The "repair damage" pop-up after the race will show damage that doesn't transmit to iRacing, but instead untreated damage just has a chance of post-race inspection failing in Race Weekend, triggering a DQ. So while you can get away with not repairing damage, the more it goes untreated, the higher the chance of DQ.
+
 ## Getting started
 
 1. Download the latest release from the [Releases](https://github.com/mangobandicoot/Race-Weekend/releases) page
@@ -42,6 +54,18 @@ Race Weekend is a career management app for iRacing's AI racing mode. You race i
 - Designed for iRacing's AI offline mode, the bridge connects to your local iRacing instance and works in offline sessions. It may also work in private hosted sessions, though this has not been fully tested.
 - Can also be used to track a career in a private league or against friends online by entering results manually.
 
+## Known Issues
+
+**Post-race screen reappears.** After closing the repair modal, the post-race summary briefly reappears before dismissing. This doesn't affect results or functionality and should be addressed in a minor update.
+
+**Incident filtering shows all drivers.** When entering incidents after a race, the search pulls from all drivers you've ever encountered rather than just the drivers in that race.
+
+**AI car number conflicts.** If an AI driver's stored number matches your reserved car number, iRacing may assign them a random number instead of the app cleanly reassigning it. Mostly resolved but edge cases remain.
+
+**White or unpainted cars.** Occasionally an AI car will appear unpainted in iRacing. Again, mostly fixed, but edge cases remain. 
+
+Feel free to [submit any bugs you encounter](https://github.com/mangobandicoot/Race-Weekend/issues).
+
 ## Notes
 
 **Privacy.** Race Weekend makes no network calls. Everything runs locally. Your save file stays on your machine, and the only external connection is the bridge talking to iRacing on localhost.
@@ -52,7 +76,7 @@ Race Weekend is a career management app for iRacing's AI racing mode. You race i
 
 🐛 **Found a bug?** Open an issue on GitHub.
 
-💡 **Have an idea?** Feature requests are welcome — open an issue and describe what you're thinking.
+💡 **Have an idea?** Feature requests are welcome
 
 ## License
 

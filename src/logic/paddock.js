@@ -94,11 +94,9 @@
                 ['003049','FCBF49','EAE2B7'],['2B2D42','EF233C','FFFFFF'],
                 ['155263','FF6F3C','FFFFFF'],['1B4332','95D5B2','FFFFFF'],
                 ['6A0572','FF9EF7','FFFFFF'],['1D3557','457B9D','A8DADC'],
-                ['370617','E85D04','FAA307'],['0D1B2A','1B4965','BEE9E8'],
                 ['2D6A4F','52B788','FFFFFF'],['7B2D8B','F1A7DC','FFFFFF'],
                 ['3C1518','A44200','FFFFFF'],['0F3460','533483','E94560'],
                 ['16213E','0F3460','E94560'],['2C3E50','E74C3C','FFFFFF'],
-                ['1B2631','2E4057','FFFFFF'],['283747','AEB6BF','FFFFFF'],
                 // light backgrounds removed — iRacing renders them as white
             ];
 
