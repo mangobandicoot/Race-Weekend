@@ -10510,14 +10510,29 @@ let G = null;
                     const typeLabel = goal.type === 'fan_promise' ? '🤝 Fan Promise' : goal.type === 'sponsor' ? '💰 Sponsor Goal' : '⭐ Milestone';
                     const targetLabel = { win: 'Win a race', top5: 'Finish top 5', top10: 'Finish top 10', top5_pts: 'Top 5 in points', top10_pts: 'Top 10 in points', avg_top8: 'Avg top 8 finish' }[goal.target] || goal.target;
                     // check progress
+                    // win/top5/top10 are global — any series counts
+                    const allSeasonRaces = G.raceHistory.filter(r => r.season === G.season);
+                    const allClean = allSeasonRaces.filter(r => !r.dnf && !r.dq);
+                    // series-specific races for sponsor/points/avg goals
                     const seasonRaces = G.raceHistory.filter(r => r.season === G.season && r.seriesId === goal.seriesId);
                     const racesDone = seasonRaces.filter(r => !r.dnf && !r.dq);
                     let progress = '';
-                    if (goal.target === 'win') progress = racesDone.some(r => r.pos === 1) ? '✅ Done' : 'No wins yet';
-                    else if (goal.target === 'top5') progress = racesDone.some(r => r.pos <= 5) ? '✅ Done' : 'No top 5 yet';
-                    else if (goal.target === 'top10') progress = racesDone.some(r => r.pos <= 10) ? '✅ Done' : 'No top 10 yet';
+                    if (goal.target === 'win') progress = allClean.some(r => r.pos === 1) ? '✅ Done' : 'No wins yet';
+                    else if (goal.target === 'top5') progress = allClean.some(r => r.pos <= 5) ? '✅ Done' : 'No top 5 yet';
+                    else if (goal.target === 'top10') progress = allClean.some(r => r.pos <= 10) ? '✅ Done' : 'No top 10 yet';
                     else if (goal.target === 'top10_pts') progress = '📊 Points standing';
-                    else if (racesDone.length >= 2) { const avg = racesDone.reduce((a, r, _, arr) => a + r.pos / arr.length, 0); progress = `Avg P${avg.toFixed(1)}`; }
+                    else if (goal.target === 'avg_top8') {
+                        // best average from any series with 4+ clean finishes
+                        const bySeriesAvg = {};
+                        G.contracts.forEach(function(c) {
+                            const cRaces = G.raceHistory.filter(r => r.season === G.season && r.seriesId === c.seriesId && !r.dnf && !r.dq);
+                            if (cRaces.length >= 4) {
+                                bySeriesAvg[c.seriesId] = cRaces.reduce((a, r, _, arr) => a + r.pos / arr.length, 0);
+                            }
+                        });
+                        const bestAvg = Object.values(bySeriesAvg).length ? Math.min(...Object.values(bySeriesAvg)) : null;
+                        progress = bestAvg !== null ? `Avg P${bestAvg.toFixed(1)}` : racesDone.length >= 2 ? `Avg P${(racesDone.reduce((a,r,_,arr)=>a+r.pos/arr.length,0)).toFixed(1)}` : 'Not enough races';
+                    }
                     const rewardStr = [goal.reward.money ? `+${fmtMoney(goal.reward.money)}` : null, goal.reward.rep ? `+${goal.reward.rep} rep` : null, goal.reward.fans ? `+${fmtFans(goal.reward.fans)} fans` : null].filter(Boolean).join(' · ');
                     gc.appendChild(h('div', { style: { padding: '10px 0', borderBottom: '1px solid #0D1117', display: 'flex', gap: '12px', alignItems: 'flex-start' } },
                         h('div', { style: { fontSize: '12px', fontWeight: 700, color: typeColor, background: typeColor + '18', padding: '3px 8px', borderRadius: '4px', whiteSpace: 'nowrap', marginTop: '2px' } }, typeLabel),
