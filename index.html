@@ -17212,6 +17212,10 @@ let G = null;
                             const _raceSnap = (G.schedules[seriesId] || [])[raceIdx];
                             const _condId = (_raceSnap && _raceSnap.condition) || 'clear';
                             result.condition = _condId;
+                            const _summary = _raceSnap && _raceSnap.result && _raceSnap.result.summary;
+                            if (_summary) {
+                                showSummaryToast(_summary, (getSeries(seriesId) && getSeries(seriesId).color) || '#F59E0B', (getSeries(seriesId) && getSeries(seriesId).short) || '');
+                            }
                             setTimeout(function () {
                                 openRepairModal(seriesId, result, () => {
                                     maybeFireCalendarEvent();

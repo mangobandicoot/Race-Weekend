@@ -1011,7 +1011,8 @@ def tick_flag_detection():
         prev_sf          = race["session_flags_prev"]
         yellow_bit       = 0x0002
         sim_just_yellowed = bool(sf & yellow_bit) and not bool(prev_sf & yellow_bit)
-        if sim_just_yellowed:
+        total = state["race"].get("total_laps", 0)
+        if sim_just_yellowed and (total == 0 or leader_laps < total - 1):
             race["yellows"].append({
                 "lap": leader_laps,
                 "reason": "caution — iRacing sim event",
@@ -1252,6 +1253,7 @@ def tick():
                 except Exception:
                     total_laps = 100
                 _lap_scale = max(0.4, min(3.0, 100.0 / max(total_laps, 10)))
+                state["race"]["total_laps"] = total_laps
                 CFG["yellow_chance_per_lap"]  = 0.035 * _lap_scale
                 CFG["ai_base_failure_chance"] = 0.0003 * _lap_scale
                 print(f"[Bridge] Race length: {total_laps} laps — scale: {_lap_scale:.2f}x "
