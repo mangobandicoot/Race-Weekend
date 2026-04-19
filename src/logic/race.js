@@ -294,8 +294,9 @@
                 }
             }
 
-            // Sponsor happiness
+            // Sponsor happiness — only applies if sponsor is in this series or has no series
             state.sponsors = state.sponsors.map(sp => {
+                if (sp.seriesId && sp.seriesId !== seriesId) return sp; // wrong series, skip
                 let h = sp.happiness;
                 if (result.dq) h -= ((SPONSOR_TYPES[sp.type] && SPONSOR_TYPES[sp.type].decay) || 5) * 1.5;
                 else if (result.dnf) h -= (SPONSOR_TYPES[sp.type] && SPONSOR_TYPES[sp.type].decay) || 5;

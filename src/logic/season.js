@@ -333,11 +333,11 @@
             const goals = [];
             const seriesIds = state.contracts.map(c => c.seriesId);
             if (!seriesIds.length) return goals;
-            // Use highest tier series for goals
+            // Use the series with the most scheduled races — reflects primary commitment
             const sid = seriesIds.reduce(function(best, id) {
-                var sTier = (getSeries(id) && getSeries(id).tier) || 0;
-                var bestTier = (getSeries(best) && getSeries(best).tier) || 0;
-                return sTier > bestTier ? id : best;
+                var schedLen = (state.schedules[id] || []).length;
+                var bestLen = (state.schedules[best] || []).length;
+                return schedLen > bestLen ? id : best;
             }, seriesIds[0]);
             const s = getSeries(sid);
             if (!s) return goals;
@@ -349,10 +349,12 @@
                 const targetType = tier <= 2 ? 'top10' : tier <= 4 ? 'top5' : 'win';
                 const targetLabel = targetType === 'win' ? 'Win a race' : targetType === 'top5' ? 'Finish top 5' : 'Finish top 10';
                 const bonus = Math.floor(primarySponsor.valuePerSeason * (targetType === 'win' ? 0.4 : 0.2));
+                const sponsorSeriesId = primarySponsor.seriesId || sid;
+                const sponsorSeries = getSeries(sponsorSeriesId) || s;
                 goals.push({
-                    id: 'sponsor_' + uid(), type: 'sponsor', seriesId: sid,
+                    id: 'sponsor_' + uid(), type: 'sponsor', seriesId: sponsorSeriesId,
                     sponsorName: primarySponsor.brand,
-                    desc: `${primarySponsor.brand} wants a result. They need ${targetLabel.toLowerCase()} this season to justify the renewal conversation.`,
+                    desc: `${primarySponsor.brand} wants a result in the ${sponsorSeries.short}. They need ${targetLabel.toLowerCase()} this season to justify the renewal conversation.`,
                     target: targetType, reward: { money: bonus }, failPenalty: { sponsorHappy: -25 },
                     status: 'active', season: state.season, achieved: false,
                 });
