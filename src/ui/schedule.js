@@ -347,7 +347,7 @@
                                 if (alreadyRan && !_isConflicted) {
                                     // Check if the race they ran was at the same track — double-header, not a conflict
                                     var _ocSched = G.schedules[oc.seriesId] || [];
-                                    var _ocRan = _ocSched.find(function(cr) { return cr.result && (G.raceHistory || []).some(function(rh) { return rh.seriesId === oc.seriesId && rh.season === G.season && rh.week === (race.week || race.round); }); });
+                                    var _ocRan = _ocSched.find(function(cr) { return cr.result && (cr.week || cr.round) === (race.week || race.round); });
                                     var _ocTrack = _ocRan ? _ocRan.track : '';
                                     if (_ocTrack && _ocTrack === race.track) return; // same track = double-header, skip conflict
                                     _isConflicted = true;
@@ -490,7 +490,7 @@
                         var _conflictRanTrack = '';
                         if (conflictSeriesId) {
                             var _conflictSched2 = G.schedules[conflictSeriesId] || [];
-                            var _conflictRan2 = _conflictSched2.find(function(cr) { return cr.week === G.week && cr.result; });
+                            var _conflictRan2 = _conflictSched2.find(function(cr) { return (cr.week || cr.round) === (race.week || race.round) && cr.result; });
                             _conflictRanTrack = _conflictRan2 ? (_conflictRan2.track || '') : '';
                         }
                         var _sameTrackDoubleHeader = conflictSeriesId && _conflictRanTrack && race.track && _conflictRanTrack === race.track;

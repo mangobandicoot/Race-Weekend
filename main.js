@@ -133,6 +133,27 @@ ipcMain.handle('bridge:restart', () => {
 ipcMain.handle('save:write', (_, data) => {
   try {
     fs.writeFileSync(getSavePath(), data, 'utf8');
+
+    // Silent backup — keep last 5, rotate on every save
+    try {
+      const backupDir = path.join(path.dirname(getSavePath()), 'backups');
+      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const backupPath = path.join(backupDir, `race-weekend-save-${stamp}.json`);
+      fs.writeFileSync(backupPath, data, 'utf8');
+      // Trim to last 5 backups
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.startsWith('race-weekend-save-') && f.endsWith('.json'))
+        .sort();
+      if (files.length > 5) {
+        files.slice(0, files.length - 5).forEach(f => {
+          fs.unlinkSync(path.join(backupDir, f));
+        });
+      }
+    } catch (be) {
+      console.warn('[Save] Backup failed:', be.message);
+    }
+
     return true;
   } catch (e) {
     console.error('[Save] Write failed:', e.message);

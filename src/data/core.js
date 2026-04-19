@@ -1,5 +1,5 @@
 // version
-        const APP_VERSION = 'v1.1.0';
+        const APP_VERSION = 'v1.1.1';
         // home states
         const US_STATES = [
             'AL', 'AR', 'AZ', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY',
