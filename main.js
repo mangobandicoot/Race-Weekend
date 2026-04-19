@@ -151,6 +151,24 @@ ipcMain.handle('save:read', () => {
   }
 });
 
+ipcMain.handle('bridge:readEvents', () => {
+  try {
+    const eventsPath = path.join(
+      app.getPath('userData'),
+      'bridge_events.json'
+    );
+    if (!fs.existsSync(eventsPath)) return null;
+    const raw = fs.readFileSync(eventsPath, 'utf-8');
+    const data = JSON.parse(raw);
+    // Ignore if older than 4 hours
+    if (!data.timestamp || (Date.now() / 1000) - data.timestamp > 14400) return null;
+    return data;
+  } catch (e) {
+    console.error('[Bridge] readEvents failed:', e.message);
+    return null;
+  }
+});
+
 ipcMain.handle('save:delete', () => {
   try {
     const p = getSavePath();

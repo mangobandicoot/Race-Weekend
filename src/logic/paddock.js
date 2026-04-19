@@ -86,24 +86,23 @@
             // dark bg = light numbers, light bg = dark numbers
             var PALETTES = [
                 ['ED1C24','FFFFFF','000000'],['0A3D91','FFFFFF','C8AA37'],
-                ['006940','FFFFFF','FFD700'],
-                ['FF6B00','000000','FFFFFF'],['4B0082','FFFFFF','FFD700'],
+                ['006940','FFFFFF','FFD700'],['FF6B00','000000','FFFFFF'],
                 ['8B0000','FFFFFF','C0C0C0'],['005A9C','FFD700','FFFFFF'],
                 ['2D6A2D','FFFFFF','FFD700'],['1A1A2E','E94560','FFFFFF'],
                 ['00334E','00B4D8','FFFFFF'],['3D0000','FF4444','FFFFFF'],
-                ['003049','FCBF49','EAE2B7'],['2B2D42','EF233C','FFFFFF'],
-                ['155263','FF6F3C','FFFFFF'],['1B4332','95D5B2','FFFFFF'],
-                ['6A0572','FF9EF7','FFFFFF'],['1D3557','457B9D','A8DADC'],
+                ['2B2D42','EF233C','FFFFFF'],['155263','FF6F3C','FFFFFF'],
+                ['1B4332','95D5B2','FFFFFF'],['6A0572','FF9EF7','FFFFFF'],,
                 ['2D6A4F','52B788','FFFFFF'],['7B2D8B','F1A7DC','FFFFFF'],
                 ['3C1518','A44200','FFFFFF'],['0F3460','533483','E94560'],
                 ['16213E','0F3460','E94560'],['2C3E50','E74C3C','FFFFFF'],
+                ['1D3557','457B9D','A8DADC']
                 // light backgrounds removed — iRacing renders them as white
             ];
 
             // car designs 0-25 confirmed valid
             var CAR_DESIGNS_BY_SERIES = {
     mini_stock:       [0,1,2,3,4,5,7,8,11,12,13,15,17,19,20,21,22,23],
-    street_stock:     [1,2,3,4,5,7,8,9,10,11,15,16,17,19,20,21,23],
+    street_stock:     [1,2,3,4,5,7,8,9,10,11,15,16,17,19,21,23],
     super_late_model: [1,2,3,4,5,6,7,8,9,12,14,15,16,17,18,19,20,21,22,23],
     late_model_stock: [0,1,2,3,4,5,6,7,8,10,11,13,14,15,16,17,18,19,20,21,22,23,24,25],
     arca_menards:     [0,1,2,3,4,5,6,8,9,11,13,15,16,17,18,20,21,23],
@@ -214,7 +213,7 @@ do {
     var _b = parseInt(_h.slice(4,6),16)/255;
     var _lum = 0.2126*_r + 0.7152*_g + 0.0722*_b;
     _attempts++;
-} while ((_lum < 0.05 || _lum > 0.85) && _attempts < 20);
+} while ((_lum < 0.05 || _lum > 0.85) && _attempts < 50);
                 var lum = getLuminance(pal[0]);
                 // < 0.35 dark bg, >= 0.35 light bg
                 var numDesign = lum < 0.35

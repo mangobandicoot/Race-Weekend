@@ -26,4 +26,7 @@ contextBridge.exposeInMainWorld('electronBridge', {
 
   // App version (useful for "About" display)
   getVersion: () => ipcRenderer.invoke('app:version'),
+
+  // Bridge race event log (DNFs + yellows written at session end)
+  readBridgeEvents: () => ipcRenderer.invoke('bridge:readEvents'),
 });

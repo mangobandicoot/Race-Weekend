@@ -30,6 +30,7 @@ _log_path = os.path.join(
     os.environ.get('LOCALAPPDATA', os.path.expanduser('~')),
     'iRacing Career Manager', 'bridge.log'
 )
+_events_path = os.path.join(os.path.dirname(_log_path), 'bridge_events.json')
 os.makedirs(os.path.dirname(_log_path), exist_ok=True)
 logging.basicConfig(
     filename=_log_path,
@@ -1324,14 +1325,48 @@ def tick():
                         ),
                     }
 
+                    # Build chronological event log — DNFs and yellows only
+                    _events = []
+                    for bf in state["race"]["black_flags"]:
+                        if bf.get("is_dnf"):
+                            _events.append({
+                                "lap":    bf["lap"],
+                                "type":   "dnf",
+                                "car":    bf["car"],
+                                "driver": bf["driver"],
+                                "reason": bf["reason"],
+                            })
+                    for y in state["race"]["yellows"]:
+                        _events.append({
+                            "lap":    y["lap"],
+                            "type":   "yellow",
+                            "reason": y["reason"],
+                            "source": y.get("source", "bridge"),
+                        })
+                    # Sort by lap; DNFs before yellows on same lap (cause before effect)
+                    _events.sort(key=lambda e: (e["lap"], 0 if e["type"] == "dnf" else 1))
+
                     state["last_result"] = {
                         "track":        state["track"],
                         "finish_order": state["finish_order"],
                         "player_name":  state["player_name"],
                         "field_size":   len(state["finish_order"]),
                         "flags":        flags,
+                        "events":       _events,
                         "timestamp":    time.time(),
                     }
+
+                    # Write sidecar for the app to read post-race
+                    try:
+                        with open(_events_path, 'w', encoding='utf-8') as _ef:
+                            json.dump({
+                                "track":     state["track"],
+                                "timestamp": state["last_result"]["timestamp"],
+                                "events":    _events,
+                            }, _ef)
+                        print(f"[Bridge] Events written: {len(_events)} entries → {_events_path}")
+                    except Exception as _ew:
+                        print(f"[Bridge] Could not write events file: {_ew}")
                     print(
                         f"[Bridge] {len(state['finish_order'])} drivers. "
                         f"{flags['yellow_count']} cautions. "
