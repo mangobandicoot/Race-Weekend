@@ -376,6 +376,8 @@
         // off-track
         function doOffTrackEvent(evt) {
             if (G.money < evt.cost) return;
+            if (!G.offTrackDone) G.offTrackDone = [];
+            if (G.offTrackDone.some(function(d) { return d === evt.id + '_s' + G.season || d === evt.id; })) return;
             G.money -= evt.cost;
             var _tier = G.contracts.length ? Math.max(...G.contracts.map(function(c) { var s = getSeries(c.seriesId); return s && !s.isSideStep ? (s.tier || 1) : 1; })) : 1;
             var _offMult = [1, 0.3, 0.5, 0.8, 1.2, 2.0, 3.5, 6.0][Math.min(_tier, 7)] || 0.3;

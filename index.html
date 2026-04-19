@@ -13055,7 +13055,7 @@ let G = null;
                 ),
                 !offTrackCollapsed && h('div', { style: { fontSize: '14px', color: '#94A3B8', marginBottom: '12px' } }, 'Once per season each. Earns rep, fans, sponsor happiness.'),
                 ...(!offTrackCollapsed ? OFF_TRACK.map(evt => {
-                    const done = (G.offTrackDone || []).includes(evt.id);
+                    const done = (G.offTrackDone || []).some(function(d) { return d === evt.id + '_s' + G.season || d === evt.id; });
                     const canAfford = G.money >= evt.cost;
                     return h('div', { className: 'row-item', style: { opacity: done ? '0.45' : '1' } },
                         h('div', { style: { flex: 1 } },
@@ -13063,7 +13063,7 @@ let G = null;
                             h('div', { style: { fontSize: '14px', color: '#94A3B8', marginTop: '2px' } }, evt.desc),
                             h('div', { style: { fontSize: '14px', color: '#94A3B8', marginTop: '3px' } }, `+${evt.rep} rep · +${fmtFans(evt.fans)} fans · sponsors +${evt.sponsorHappy}%${evt.cost > 0 ? ` · ${fmtMoney(evt.cost)}` : ' · free'}`),
                         ),
-                        done ? badge('Done', '#64748B') : mkBtn(canAfford ? 'Do It' : `Need ${fmtMoney(evt.cost - G.money)}`, 'btn btn-sm btn-secondary', () => doOffTrackEvent(evt), !canAfford),
+                        done ? badge('Done', '#64748B') : mkBtn(canAfford ? 'Do It' : `Need ${fmtMoney(evt.cost - G.money)}`, 'btn btn-sm btn-secondary', () => doOffTrackEvent(evt), !canAfford || done),
                     );
                 }) : [])
             ));
@@ -15620,6 +15620,8 @@ let G = null;
         // off-track
         function doOffTrackEvent(evt) {
             if (G.money < evt.cost) return;
+            if (!G.offTrackDone) G.offTrackDone = [];
+            if (G.offTrackDone.some(function(d) { return d === evt.id + '_s' + G.season || d === evt.id; })) return;
             G.money -= evt.cost;
             var _tier = G.contracts.length ? Math.max(...G.contracts.map(function(c) { var s = getSeries(c.seriesId); return s && !s.isSideStep ? (s.tier || 1) : 1; })) : 1;
             var _offMult = [1, 0.3, 0.5, 0.8, 1.2, 2.0, 3.5, 6.0][Math.min(_tier, 7)] || 0.3;

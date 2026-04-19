@@ -541,7 +541,7 @@
                 ),
                 !offTrackCollapsed && h('div', { style: { fontSize: '14px', color: '#94A3B8', marginBottom: '12px' } }, 'Once per season each. Earns rep, fans, sponsor happiness.'),
                 ...(!offTrackCollapsed ? OFF_TRACK.map(evt => {
-                    const done = (G.offTrackDone || []).includes(evt.id);
+                    const done = (G.offTrackDone || []).some(function(d) { return d === evt.id + '_s' + G.season || d === evt.id; });
                     const canAfford = G.money >= evt.cost;
                     return h('div', { className: 'row-item', style: { opacity: done ? '0.45' : '1' } },
                         h('div', { style: { flex: 1 } },
@@ -549,7 +549,7 @@
                             h('div', { style: { fontSize: '14px', color: '#94A3B8', marginTop: '2px' } }, evt.desc),
                             h('div', { style: { fontSize: '14px', color: '#94A3B8', marginTop: '3px' } }, `+${evt.rep} rep · +${fmtFans(evt.fans)} fans · sponsors +${evt.sponsorHappy}%${evt.cost > 0 ? ` · ${fmtMoney(evt.cost)}` : ' · free'}`),
                         ),
-                        done ? badge('Done', '#64748B') : mkBtn(canAfford ? 'Do It' : `Need ${fmtMoney(evt.cost - G.money)}`, 'btn btn-sm btn-secondary', () => doOffTrackEvent(evt), !canAfford),
+                        done ? badge('Done', '#64748B') : mkBtn(canAfford ? 'Do It' : `Need ${fmtMoney(evt.cost - G.money)}`, 'btn btn-sm btn-secondary', () => doOffTrackEvent(evt), !canAfford || done),
                     );
                 }) : [])
             ));
