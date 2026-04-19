@@ -91,7 +91,7 @@
                 ['2D6A2D','FFFFFF','FFD700'],['1A1A2E','E94560','FFFFFF'],
                 ['00334E','00B4D8','FFFFFF'],['3D0000','FF4444','FFFFFF'],
                 ['2B2D42','EF233C','FFFFFF'],['155263','FF6F3C','FFFFFF'],
-                ['1B4332','95D5B2','FFFFFF'],['6A0572','FF9EF7','FFFFFF'],,
+                ['1B4332','95D5B2','FFFFFF'],['6A0572','FF9EF7','FFFFFF'],
                 ['2D6A4F','52B788','FFFFFF'],['7B2D8B','F1A7DC','FFFFFF'],
                 ['3C1518','A44200','FFFFFF'],['0F3460','533483','E94560'],
                 ['16213E','0F3460','E94560'],['2C3E50','E74C3C','FFFFFF'],
