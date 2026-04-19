@@ -1124,6 +1124,35 @@
             if (!race || !race.result) return;
             const s = getSeries(seriesId);
             const result = race.result;
+
+            // Fetch bridge events sidecar, then build modal
+            const _doBuild = function(bridgeEvents) {
+                _openRaceHistoryModal(seriesId, raceIdx, bridgeEvents);
+            };
+            if (window.electronBridge && window.electronBridge.readBridgeEvents) {
+                window.electronBridge.readBridgeEvents().then(function(evData) {
+                    let events = null;
+                    if (evData && evData.events && evData.events.length) {
+                        // Match on first word of track name — loose but avoids "Bristol Motor Speedway" vs "Bristol"
+                        const trackWord = (race.track || '').split(' ')[0].toLowerCase();
+                        const evTrackWord = (evData.track || '').split(' ')[0].toLowerCase();
+                        if (!trackWord || !evTrackWord || trackWord === evTrackWord) {
+                            events = evData.events;
+                        }
+                    }
+                    _doBuild(events);
+                }).catch(function() { _doBuild(null); });
+            } else {
+                _doBuild(null);
+            }
+        }
+
+        function _openRaceHistoryModal(seriesId, raceIdx, bridgeEvents) {
+            const sched = G.schedules[seriesId] || [];
+            const race = sched[raceIdx];
+            if (!race || !race.result) return;
+            const s = getSeries(seriesId);
+            const result = race.result;
            const isDQ = result.dq || false;
             const pc = isDQ ? '#F97316' : result.dnf ? '#EF4444' : result.position === 1 ? '#F59E0B' : result.position <= 5 ? '#10B981' : '#94A3B8';
             const resultLabel = isDQ ? 'DQ' : result.dnf ? 'DNF' : `P${result.position}`;
@@ -1134,6 +1163,31 @@
                 h('div', { className: 'modal-eyebrow' }, `${s.short} — Round ${race.round}`),
                 h('div', { className: 'modal-title' }, race.track),
                 h('div', { className: 'modal-sub' }, `${race.city}, ${race.state}` + (race.raceLaps ? ` · ${race.raceLaps} laps` : '')),
+
+                // Bridge event log
+                bridgeEvents && bridgeEvents.length ? h('div', {
+                    style: { background: '#060A10', border: '1px solid #1E2433', borderRadius: '8px',
+                             padding: '10px 14px', marginBottom: '16px' }
+                },
+                    h('div', { style: { fontSize: '11px', color: '#64748B', textTransform: 'uppercase',
+                                        letterSpacing: '0.1em', fontWeight: 700, marginBottom: '8px' } },
+                        '📋 Race Log — iRacing Bridge'),
+                    ...bridgeEvents.map(function(ev) {
+                        const isDnf = ev.type === 'dnf';
+                        return h('div', {
+                            style: { fontSize: '12px', color: isDnf ? '#FCA5A5' : '#F59E0B',
+                                     padding: '3px 0', borderTop: '1px solid #0D111766',
+                                     fontFamily: 'monospace' }
+                        },
+                            h('span', { style: { color: '#475569', marginRight: '8px',
+                                                  display: 'inline-block', minWidth: '52px' } },
+                                'Lap ' + ev.lap),
+                            isDnf
+                                ? '🚩 #' + ev.car + ' ' + ev.driver + ' — DNF, ' + ev.reason
+                                : '🟡 Yellow flag' + (ev.source === 'sim' ? ' (iRacing)' : '') + ' — ' + ev.reason,
+                        );
+                    })
+                ) : null,
 
                 // Mad-libs summary block (if present)
                 result.summary ? h('div', {
