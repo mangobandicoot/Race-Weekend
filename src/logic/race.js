@@ -376,6 +376,20 @@
             });
 
 
+            // Passive friendship — drivers you've shared clean laps with over time
+            if (Math.random() < 0.15) {
+                const _cleanDrivers = order.filter(function(e) {
+                    if (!e.name || e.isPlayer || /\byou\b/i.test(e.name)) return false;
+                    if (e.name.toLowerCase() === myLower) return false;
+                    const _existing = state.rivals.find(function(r) { return r.name === e.name; });
+                    return !_existing || (_existing.incidents || 0) === 0;
+                });
+                if (_cleanDrivers.length) {
+                    const _pick = _cleanDrivers[rand(0, Math.min(2, _cleanDrivers.length - 1))];
+                    touchRival(state.rivals, _pick.name, 'close', true);
+                }
+            }
+
             // Incident drivers
             (result.incidentDrivers || []).forEach(name => {
                 if (name.trim()) touchRival(state.rivals, name.trim(), 'incident', false);

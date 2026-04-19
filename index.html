@@ -6205,7 +6205,7 @@ do {
             const rcThresh    = tier >= 6 ? 4 : tier >= 4 ? 3 : 2;
             // Friend threshold: 3 close races with 0-1 incidents and majority clean
             // Much easier than rivals — clean racing passively builds this
-            const friendThresh = tier >= 4 ? 4 : 3;
+            const friendThresh = tier >= 4 ? 3 : 2;
             if (i >= rivalThresh && c >= closeThresh) return 'frenemy';
             if (i >= rivalThresh) return 'rival';
             if (c >= closeThresh) return cb >= c * 0.6 ? 'racing_rival' : 'frenemy';
@@ -7915,6 +7915,20 @@ do {
                 maybeFireDriverCallout(state, cf.name, 'close', race.track);
             });
 
+
+            // Passive friendship — drivers you've shared clean laps with over time
+            if (Math.random() < 0.15) {
+                const _cleanDrivers = order.filter(function(e) {
+                    if (!e.name || e.isPlayer || /\byou\b/i.test(e.name)) return false;
+                    if (e.name.toLowerCase() === myLower) return false;
+                    const _existing = state.rivals.find(function(r) { return r.name === e.name; });
+                    return !_existing || (_existing.incidents || 0) === 0;
+                });
+                if (_cleanDrivers.length) {
+                    const _pick = _cleanDrivers[rand(0, Math.min(2, _cleanDrivers.length - 1))];
+                    touchRival(state.rivals, _pick.name, 'close', true);
+                }
+            }
 
             // Incident drivers
             (result.incidentDrivers || []).forEach(name => {

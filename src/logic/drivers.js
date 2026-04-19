@@ -323,7 +323,7 @@
             const rcThresh    = tier >= 6 ? 4 : tier >= 4 ? 3 : 2;
             // Friend threshold: 3 close races with 0-1 incidents and majority clean
             // Much easier than rivals — clean racing passively builds this
-            const friendThresh = tier >= 4 ? 4 : 3;
+            const friendThresh = tier >= 4 ? 3 : 2;
             if (i >= rivalThresh && c >= closeThresh) return 'frenemy';
             if (i >= rivalThresh) return 'rival';
             if (c >= closeThresh) return cb >= c * 0.6 ? 'racing_rival' : 'frenemy';
