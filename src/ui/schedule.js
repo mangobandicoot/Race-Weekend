@@ -345,6 +345,11 @@
                                         && rh.week === (race.week || race.round);
                                 });
                                 if (alreadyRan && !_isConflicted) {
+                                    // Check if the race they ran was at the same track — double-header, not a conflict
+                                    var _ocSched = G.schedules[oc.seriesId] || [];
+                                    var _ocRan = _ocSched.find(function(cr) { return cr.result && (G.raceHistory || []).some(function(rh) { return rh.seriesId === oc.seriesId && rh.season === G.season && rh.week === (race.week || race.round); }); });
+                                    var _ocTrack = _ocRan ? _ocRan.track : '';
+                                    if (_ocTrack && _ocTrack === race.track) return; // same track = double-header, skip conflict
                                     _isConflicted = true;
                                     var _cs = getSeries(oc.seriesId);
                                     _conflictShort = _cs ? _cs.short : null;
@@ -357,8 +362,8 @@
                             'data-is-next': isNext ? 'true' : 'false',
                             style: {
                                 display: 'flex', alignItems: 'center', gap: '10px',
-                                background: isNext ? '#0D1820' : _isConflicted ? '#1A1000' : _sameTrackOther ? '#0F1A0F' : 'transparent',
-                                border: isNext ? '2px solid #10B981' : _isConflicted ? '1px solid #F59E0B88' : _sameTrackOther ? '1px solid #10B98144' : '1px solid transparent',
+                                background: isNext ? '#0D1820' : (_isConflicted && !_sameTrackDoubleHeaderRow) ? '#1A1000' : _sameTrackOther ? '#0F1A0F' : 'transparent',
+                                border: isNext ? '2px solid #10B981' : (_isConflicted && !_sameTrackDoubleHeaderRow) ? '1px solid #F59E0B88' : _sameTrackOther ? '1px solid #10B98144' : '1px solid transparent',
                                 borderRadius: '7px', padding: '8px 11px', marginBottom: '3px',
                                 opacity: done ? '0.7' : skipped ? '0.35' : '1',
                                 cursor: done ? 'pointer' : draggable ? 'default' : 'default',
@@ -481,8 +486,16 @@
                                             var _conflictRan = _conflictSched.find(function(cr) { return cr.week === G.week && cr.result; });
                                             _conflictRaceState = _conflictRan ? (_conflictRan.state || '') : '';
                                         }
-                                        var _sameRegionDoubleHeader = conflictSeriesId && _thisRaceState && _conflictRaceState && isSameRegion(_thisRaceState, _conflictRaceState);
-                                        var isBlocked = !!(conflictSeriesId && !_sameRegionDoubleHeader);
+                                        // Same track = always a double-header, never blocked
+                        var _conflictRanTrack = '';
+                        if (conflictSeriesId) {
+                            var _conflictSched2 = G.schedules[conflictSeriesId] || [];
+                            var _conflictRan2 = _conflictSched2.find(function(cr) { return cr.week === G.week && cr.result; });
+                            _conflictRanTrack = _conflictRan2 ? (_conflictRan2.track || '') : '';
+                        }
+                        var _sameTrackDoubleHeader = conflictSeriesId && _conflictRanTrack && race.track && _conflictRanTrack === race.track;
+                        var _sameRegionDoubleHeader = conflictSeriesId && _thisRaceState && _conflictRaceState && isSameRegion(_thisRaceState, _conflictRaceState);
+                        var isBlocked = !!(conflictSeriesId && !_sameRegionDoubleHeader && !_sameTrackDoubleHeader);
                                         const blockedByState = conflictSeries ? conflictSeries.short : null;
 
                                         var openConflictModal = function() {
