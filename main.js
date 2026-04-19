@@ -154,7 +154,8 @@ ipcMain.handle('save:read', () => {
 ipcMain.handle('bridge:readEvents', () => {
   try {
     const eventsPath = path.join(
-      app.getPath('userData'),
+      process.env.LOCALAPPDATA || app.getPath('userData'),
+      'iRacing Career Manager',
       'bridge_events.json'
     );
     if (!fs.existsSync(eventsPath)) return null;
