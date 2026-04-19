@@ -227,7 +227,7 @@
                     'There was a version of tonight where ' + name + ' came home with a solid result. The car had the pace for it. Then ' + _dnfCause + ' happened, and that version ended. The garage crew will sort through what went wrong and the team will show up next week. That\'s the job.',
                 ]);
             } else if (pos === 1) {
-                var _winPrize = fmtMoney(prize);
+                var _winPrize = prize;
                 para1 = pick([
                     name + ' won at ' + _trackStr + (_nightRace ? ' under the lights' : '') + (_isPremier ? ', and it was the ' + race.premierName + ' so the win carries more weight than a normal Saturday night' : '') + '. The race had its difficult moments — it always does — but when the checkered flag came out it was ' + name + ' who was there to collect it. The ' + _winPrize + ' goes in the account, the points go in the standings, and the team will be talking about this one for a while.',
                     'Victory lane at ' + track + ' belonged to ' + name + ' tonight. It wasn\'t always pretty and there were moments in the middle of the race where the outcome was genuinely unclear, but that\'s racing — what matters is where you are when the flag falls. ' + name + ' was in front, which is where the team has been working to get all season.',
@@ -236,13 +236,13 @@
                 ]);
             } else if (pos <= 3) {
                 para1 = pick([
-                    'A podium at ' + track + ' — ' + ordinal(pos) + ' for ' + name + (_nightRace ? ' in a night race' : '') + '. The car was capable of more and everyone in the team knows it, but finishing on the podium in the ' + s.short + ' is never something to wave off. The points are real, the prize money is ' + fmtMoney(prize) + ', and the finish was earned.',
+                    'A podium at ' + track + ' — ' + ordinal(pos) + ' for ' + name + (_nightRace ? ' in a night race' : '') + '. The car was capable of more and everyone in the team knows it, but finishing on the podium in the ' + s.short + ' is never something to wave off. The points are real, the prize money is ' + prize + ', and the finish was earned.',
                     name + ' came home ' + ordinal(pos) + ' at ' + track + ', which is good but not what the team circled on the calendar before the race. The win was there at various points in the night and it didn\'t quite happen, but a podium finish in this series is a solid result and the standings will reflect it.',
                     ordinal(pos) + ' place at ' + track + ' for ' + name + '. Clean race, good pace through most of it, and a result that puts them in the conversation on points. Not the win. Still a strong night.',
                 ]);
             } else if (pos <= 8) {
                 para1 = pick([
-                    name + ' finished ' + ordinal(pos) + ' at ' + track + (_nightRace ? ' under the lights' : '') + ', which is somewhere in the range of what the team expected coming in. The field was competitive and the car did what it could do. ' + fmtMoney(prize) + ' and some useful championship points.',
+                    name + ' finished ' + ordinal(pos) + ' at ' + track + (_nightRace ? ' under the lights' : '') + ', which is somewhere in the range of what the team expected coming in. The field was competitive and the car did what it could do. ' + prize + ' and some useful championship points.',
                     ordinal(pos) + ' for ' + name + ' at ' + track + '. The pace was there in stretches, the strategy was reasonable, and the result is an honest reflection of where things stand. Not every race is going to be a win or a podium — this one was about executing and collecting points and the team did that.',
                     'A ' + ordinal(pos) + ' at ' + track + ' for ' + name + '. There were moments in the race where it looked like it might become something better, but the field is deep in the ' + s.short + ' and a top-eight finish is what it is — a result worth having, even if it\'s not the one anyone gets excited about.',
                 ]);

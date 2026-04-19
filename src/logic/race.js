@@ -131,6 +131,7 @@
             if (sponsorRaceIncome > 0) addLog(state, `💼 Sponsor payments: +${fmtMoney(sponsorRaceIncome)}`);
 
             // prize money - apply prize split
+            if (!result.prize || isNaN(result.prize)) result.prize = 0;
             const prizeShare = (contract && !contract.indie && contract.prizeShare) ? contract.prizeShare : 1.0;
             const driverPrize = Math.floor((result.prize || 0) * prizeShare);
             const teamCut = (result.prize || 0) - driverPrize;
