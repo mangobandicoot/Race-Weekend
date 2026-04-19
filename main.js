@@ -181,6 +181,8 @@ ipcMain.handle('save:delete', () => {
 });
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
+app.disableHardwareAcceleration();
+
 app.whenReady().then(() => {
   createWindow();
   startBridge();

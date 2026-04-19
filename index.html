@@ -16239,11 +16239,6 @@ let G = null;
                     isFig8: false, isSpecial: false,
                     onSubmit: (result) => {
                         processRaceResult(G, seriesId, raceIdx, result);
-                        const _sched2 = G.schedules[seriesId] || [];
-                        const _race2 = _sched2[raceIdx];
-                        if (_race2 && _race2.result && _race2.result.summary) {
-                            showSummaryToast(_race2.result.summary, (getSeries(seriesId) && getSeries(seriesId).color) || '#F59E0B', (getSeries(seriesId) && getSeries(seriesId).short) || '');
-                        }
                         tryGenerateSummary(G, seriesId, raceIdx, result);
                     }
                 });
@@ -16851,7 +16846,8 @@ let G = null;
             }
 
             function getIncidentCandidates() {
-                // 1. Names already in the finish-order textarea (parsed live)
+                // Only use names from the finish order textarea — no DB fallback
+                // DB fallback was showing every driver ever met, not just this race field
                 const fromOrder = orderTa.value.split(/\n/).map(l => {
                     const parts = l.split(/\t/);
                     let raw = /^\d{1,3}[.):\s]*$/.test(parts[0].trim()) ? (parts[1] || '') : parts[0];
@@ -16864,14 +16860,7 @@ let G = null;
                     return raw;
                 }).filter(n => n && n.length >= 4 && /^[A-Z]/.test(n) && /\s/.test(n));
 
-                // 2. Known drivers from the database as fallback
-                const fromDB = (G.drivers || [])
-                    .filter(d => d.source === 'known' && d.name && d.name.length >= 4)
-                    .map(d => d.name);
-
-                // Merge, deduplicate, exclude already-selected and the player
-                const all = [...new Set([...fromOrder, ...fromDB])];
-                return all.filter(n =>
+                return [...new Set(fromOrder)].filter(n =>
                     !incChips.includes(n) &&
                     n.toLowerCase() !== G.driverName.toLowerCase() &&
                     !/\byou\b/i.test(n)
@@ -17227,11 +17216,6 @@ let G = null;
                                 openRepairModal(seriesId, result, () => {
                                     maybeFireCalendarEvent();
                                     saveGame(); render();
-                                    // Show summary toast AFTER repair modal closes so it isn't buried
-                                    const _r3 = (G.schedules[seriesId] || [])[raceIdx];
-                                    if (_r3 && _r3.result && _r3.result.summary) {
-                                        showSummaryToast(_r3.result.summary, (getSeries(seriesId) && getSeries(seriesId).color) || '#F59E0B', (getSeries(seriesId) && getSeries(seriesId).short) || '');
-                                    }
                                 });
                             }, 50);
                         } else {
@@ -17250,6 +17234,35 @@ let G = null;
             if (!race || !race.result) return;
             const s = getSeries(seriesId);
             const result = race.result;
+
+            // Fetch bridge events sidecar, then build modal
+            const _doBuild = function(bridgeEvents) {
+                _openRaceHistoryModal(seriesId, raceIdx, bridgeEvents);
+            };
+            if (window.electronBridge && window.electronBridge.readBridgeEvents) {
+                window.electronBridge.readBridgeEvents().then(function(evData) {
+                    let events = null;
+                    if (evData && evData.events && evData.events.length) {
+                        // Match on first word of track name — loose but avoids "Bristol Motor Speedway" vs "Bristol"
+                        const trackWord = (race.track || '').split(' ')[0].toLowerCase();
+                        const evTrackWord = (evData.track || '').split(' ')[0].toLowerCase();
+                        if (!trackWord || !evTrackWord || trackWord === evTrackWord) {
+                            events = evData.events;
+                        }
+                    }
+                    _doBuild(events);
+                }).catch(function() { _doBuild(null); });
+            } else {
+                _doBuild(null);
+            }
+        }
+
+        function _openRaceHistoryModal(seriesId, raceIdx, bridgeEvents) {
+            const sched = G.schedules[seriesId] || [];
+            const race = sched[raceIdx];
+            if (!race || !race.result) return;
+            const s = getSeries(seriesId);
+            const result = race.result;
            const isDQ = result.dq || false;
             const pc = isDQ ? '#F97316' : result.dnf ? '#EF4444' : result.position === 1 ? '#F59E0B' : result.position <= 5 ? '#10B981' : '#94A3B8';
             const resultLabel = isDQ ? 'DQ' : result.dnf ? 'DNF' : `P${result.position}`;
@@ -17260,6 +17273,31 @@ let G = null;
                 h('div', { className: 'modal-eyebrow' }, `${s.short} — Round ${race.round}`),
                 h('div', { className: 'modal-title' }, race.track),
                 h('div', { className: 'modal-sub' }, `${race.city}, ${race.state}` + (race.raceLaps ? ` · ${race.raceLaps} laps` : '')),
+
+                // Bridge event log
+                bridgeEvents && bridgeEvents.length ? h('div', {
+                    style: { background: '#060A10', border: '1px solid #1E2433', borderRadius: '8px',
+                             padding: '10px 14px', marginBottom: '16px' }
+                },
+                    h('div', { style: { fontSize: '11px', color: '#64748B', textTransform: 'uppercase',
+                                        letterSpacing: '0.1em', fontWeight: 700, marginBottom: '8px' } },
+                        '📋 Race Log — iRacing Bridge'),
+                    ...bridgeEvents.map(function(ev) {
+                        const isDnf = ev.type === 'dnf';
+                        return h('div', {
+                            style: { fontSize: '12px', color: isDnf ? '#FCA5A5' : '#F59E0B',
+                                     padding: '3px 0', borderTop: '1px solid #0D111766',
+                                     fontFamily: 'monospace' }
+                        },
+                            h('span', { style: { color: '#475569', marginRight: '8px',
+                                                  display: 'inline-block', minWidth: '52px' } },
+                                'Lap ' + ev.lap),
+                            isDnf
+                                ? '🚩 #' + ev.car + ' ' + ev.driver + ' — DNF, ' + ev.reason
+                                : '🟡 Yellow flag' + (ev.source === 'sim' ? ' (iRacing)' : '') + ' — ' + ev.reason,
+                        );
+                    })
+                ) : null,
 
                 // Mad-libs summary block (if present)
                 result.summary ? h('div', {

@@ -11,9 +11,9 @@ Without it the bridge still detects events and logs them — just no commands fi
 import sys
 import io
 if sys.stdout is not None and hasattr(sys.stdout, 'buffer'):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='ignore')
 if sys.stderr is not None and hasattr(sys.stderr, 'buffer'):
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='ignore')
 
 import irsdk
 import json
@@ -85,10 +85,10 @@ CFG = {
     # ── AI RPM stress model ───────────────────────────────────────────────────
     # Stress model is effectively disabled — stress spikes rarely reach 100%
     # Target: ~0 stress-induced failures per race
-    "ai_rpm_stress_per_redline_lap":   0.3,
-    "ai_rpm_stress_decay_per_lap":     1.5,   # decays faster than it builds
-    "ai_rpm_stress_spike_chance":      0.005, # very rare
-    "ai_rpm_stress_spike_amount":      3.0,
+    "ai_rpm_stress_per_redline_lap":   2.0,
+    "ai_rpm_stress_decay_per_lap":     0.8,   # decays slower than it builds
+    "ai_rpm_stress_spike_chance":      0.012, # slightly more frequent
+    "ai_rpm_stress_spike_amount":      8.0,
     "ai_stress_failure_threshold":     100.0,
     "ai_base_failure_chance":          0.0003, # 25 cars × 100 laps × 0.0003 = ~0.8 DNFs
 
@@ -109,11 +109,11 @@ CFG = {
 
     # ── Player RPM stress ──────────────────────────────────────────────────────
     "player_rpm_redline_pct":         0.95,
-    "player_rpm_stress_per_second":   0.08,
-    "player_rpm_stress_decay":        0.06,
+    "player_rpm_stress_per_second":   0.35,
+    "player_rpm_stress_decay":        0.02,
     "player_money_shift_rpm_drop":    1800,
-    "player_money_shift_stress":      6.0,
-    "player_engine_warning_stress":   12.0,
+    "player_money_shift_stress":      15.0,
+    "player_engine_warning_stress":   25.0,
     "player_stress_failure_threshold": 100.0,
 
     # ── Penalty durations (seconds) ───────────────────────────────────────────

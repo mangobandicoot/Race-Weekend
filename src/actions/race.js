@@ -113,11 +113,6 @@
                     isFig8: false, isSpecial: false,
                     onSubmit: (result) => {
                         processRaceResult(G, seriesId, raceIdx, result);
-                        const _sched2 = G.schedules[seriesId] || [];
-                        const _race2 = _sched2[raceIdx];
-                        if (_race2 && _race2.result && _race2.result.summary) {
-                            showSummaryToast(_race2.result.summary, (getSeries(seriesId) && getSeries(seriesId).color) || '#F59E0B', (getSeries(seriesId) && getSeries(seriesId).short) || '');
-                        }
                         tryGenerateSummary(G, seriesId, raceIdx, result);
                     }
                 });
@@ -725,7 +720,8 @@
             }
 
             function getIncidentCandidates() {
-                // 1. Names already in the finish-order textarea (parsed live)
+                // Only use names from the finish order textarea — no DB fallback
+                // DB fallback was showing every driver ever met, not just this race field
                 const fromOrder = orderTa.value.split(/\n/).map(l => {
                     const parts = l.split(/\t/);
                     let raw = /^\d{1,3}[.):\s]*$/.test(parts[0].trim()) ? (parts[1] || '') : parts[0];
@@ -738,14 +734,7 @@
                     return raw;
                 }).filter(n => n && n.length >= 4 && /^[A-Z]/.test(n) && /\s/.test(n));
 
-                // 2. Known drivers from the database as fallback
-                const fromDB = (G.drivers || [])
-                    .filter(d => d.source === 'known' && d.name && d.name.length >= 4)
-                    .map(d => d.name);
-
-                // Merge, deduplicate, exclude already-selected and the player
-                const all = [...new Set([...fromOrder, ...fromDB])];
-                return all.filter(n =>
+                return [...new Set(fromOrder)].filter(n =>
                     !incChips.includes(n) &&
                     n.toLowerCase() !== G.driverName.toLowerCase() &&
                     !/\byou\b/i.test(n)
@@ -1101,11 +1090,6 @@
                                 openRepairModal(seriesId, result, () => {
                                     maybeFireCalendarEvent();
                                     saveGame(); render();
-                                    // Show summary toast AFTER repair modal closes so it isn't buried
-                                    const _r3 = (G.schedules[seriesId] || [])[raceIdx];
-                                    if (_r3 && _r3.result && _r3.result.summary) {
-                                        showSummaryToast(_r3.result.summary, (getSeries(seriesId) && getSeries(seriesId).color) || '#F59E0B', (getSeries(seriesId) && getSeries(seriesId).short) || '');
-                                    }
                                 });
                             }, 50);
                         } else {
