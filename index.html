@@ -17168,6 +17168,15 @@ let G = null;
                         // Detect close finishes from lap times
                         const playerEntry = finishOrder.find(e => e.isPlayer || /\byou\b/i.test(e.name) || e.name.toLowerCase() === G.driverName.toLowerCase());
                         if (playerEntry) playerEntry.isPlayer = true;
+
+                        // Re-sort: finishers first in order, DNFs at the bottom in their original order
+                        const _finishers = finishOrder.filter(e => !e.dnf && !e.dq);
+                        const _dnfs = finishOrder.filter(e => e.dnf || e.dq);
+                        const _reordered = [..._finishers, ..._dnfs];
+                        _reordered.forEach((e, i) => { e.pos = i + 1; });
+                        finishOrder.length = 0;
+                        _reordered.forEach(e => finishOrder.push(e));
+
                         const closeFinishes = detectCloseFinishes(finishOrder);
 
                         const prize = isFig8 ? rand(pos === 1 ? 300 : 50, pos === 1 ? 600 : 250) : isSpecial ? ((specialEvt && specialEvt.prize) || 0) : (dnf || dq) ? 0 : calcPrize(seriesId, pos, fs);
