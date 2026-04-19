@@ -333,7 +333,12 @@
             const goals = [];
             const seriesIds = state.contracts.map(c => c.seriesId);
             if (!seriesIds.length) return goals;
-            const sid = seriesIds[0];
+            // Use highest tier series for goals
+            const sid = seriesIds.reduce(function(best, id) {
+                var sTier = (getSeries(id) && getSeries(id).tier) || 0;
+                var bestTier = (getSeries(best) && getSeries(best).tier) || 0;
+                return sTier > bestTier ? id : best;
+            }, seriesIds[0]);
             const s = getSeries(sid);
             if (!s) return goals;
             const tier = s.tier;
@@ -400,10 +405,13 @@
                 if (goal.status !== 'active') return;
                 const racesDone = seasonRaces.filter(r => r.seriesId === goal.seriesId);
                 let achieved = false;
+                // win/top5/top10 are global — any series counts
+                const allCleanRaces = seasonRaces.filter(r => r.seriesId === r.seriesId); // all series this season
+                const globalClean = state.raceHistory.filter(r => r.season === state.season && !r.dnf && !r.dq);
                 switch (goal.target) {
-                    case 'win': achieved = racesDone.some(r => !r.dnf && !r.dq && r.pos === 1); break;
-                    case 'top5': achieved = racesDone.some(r => !r.dnf && !r.dq && r.pos <= 5); break;
-                    case 'top10': achieved = racesDone.some(r => !r.dnf && !r.dq && r.pos <= 10); break;
+                    case 'win': achieved = globalClean.some(r => r.pos === 1); break;
+                    case 'top5': achieved = globalClean.some(r => r.pos <= 5); break;
+                    case 'top10': achieved = globalClean.some(r => r.pos <= 10); break;
                     case 'top10_pts': achieved = (function() {
                         const field = state.seriesFields[goal.seriesId] || {};
                         const myPts = state.championshipPoints[goal.seriesId] || 0;
@@ -417,8 +425,14 @@
                         achieved = rows.findIndex(r => r.isPlayer) < 5; break;
                     }
                     case 'avg_top8': {
-                        const clean = racesDone.filter(r => !r.dnf && !r.dq);
-                        if (clean.length >= 5) { const avg = clean.reduce((a, r, _, arr) => a + r.pos / arr.length, 0); achieved = avg <= 8; }
+                        // best average from any series with 5+ clean finishes
+                        const contractIds = (state.contracts || []).map(c => c.seriesId);
+                        achieved = contractIds.some(function(sid) {
+                            const cRaces = state.raceHistory.filter(r => r.season === state.season && r.seriesId === sid && !r.dnf && !r.dq);
+                            if (cRaces.length < 5) return false;
+                            const avg = cRaces.reduce((a, r, _, arr) => a + r.pos / arr.length, 0);
+                            return avg <= 8;
+                        });
                         break;
                     }
                 }
