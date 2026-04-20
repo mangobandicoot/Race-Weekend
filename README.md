@@ -64,7 +64,7 @@ iRacing only has spec cars, meaning all cars are 100% drivable before races and 
 
 **White or unpainted cars.** Occasionally an AI car will appear unpainted in iRacing. Again, mostly fixed, but edge cases remain. 
 
-** A user had reported the flag injection bridge stays running even with the installed app closed, causing flags to be thrown in pricate leagues. This should not happen, as the bridge itself should close when the app is closed. I will make the changes to stop this from happening with amore forceful approach to terminating the process, and upload a bridgeless version of the app as well, for people who prefer no flag control at all. A temporary workaround is to use the github pages browser version which has no connection to the brodge by default. 
+**Flag bug reported** A user had reported the flag injection bridge stays running even with the installed app closed, causing flags to be thrown in pricate leagues. This should not happen, as the bridge itself should close when the app is closed. I will make the changes to stop this from happening with amore forceful approach to terminating the process, and upload a bridgeless version of the app as well, for people who prefer no flag control at all. A temporary workaround is to use the github pages browser version which has no connection to the brodge by default. 
 
 Feel free to [submit any bugs you encounter](https://github.com/mangobandicoot/Race-Weekend/issues).
 
