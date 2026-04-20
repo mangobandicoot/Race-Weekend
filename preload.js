@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('_electronSave', (data) => ipcRenderer.invoke('s
 contextBridge.exposeInMainWorld('_electronLoad', () => ipcRenderer.invoke('save:read'));
 contextBridge.exposeInMainWorld('_electronDelete', () => ipcRenderer.invoke('save:delete'));
 
+// Flag for no-bridge builds — always false in root preload (bridge builds only)
+contextBridge.exposeInMainWorld('_noBridge', false);
+
 contextBridge.exposeInMainWorld('electronBridge', {
   // Whether the bridge auto-starts on launch
   getBridgeEnabled: () => ipcRenderer.invoke('bridge:getEnabled'),

@@ -99,7 +99,33 @@ let G = null;
         function saveGame() {
             if (!G) return;
             try {
+                // Strip snapshots from all but the most recent race result — only
+                // needed for undo and keeping them all costs ~2.5MB of save bloat
+                var _lastResultSid = null, _lastResultIdx = -1, _lastResultTime = 0;
+                Object.keys(G.schedules || {}).forEach(function(sid) {
+                    (G.schedules[sid] || []).forEach(function(race, idx) {
+                        if (race.result && race.result._submitTime && race.result._submitTime > _lastResultTime) {
+                            _lastResultTime = race.result._submitTime;
+                            _lastResultSid = sid;
+                            _lastResultIdx = idx;
+                        }
+                    });
+                });
+                var _stripped = [];
+                Object.keys(G.schedules || {}).forEach(function(sid) {
+                    (G.schedules[sid] || []).forEach(function(race, idx) {
+                        if (race.result && race.result._snapshot) {
+                            if (sid === _lastResultSid && idx === _lastResultIdx) return;
+                            _stripped.push({ sid: sid, idx: idx, snap: race.result._snapshot });
+                            delete race.result._snapshot;
+                        }
+                    });
+                });
                 var data = JSON.stringify(G, function(_k, v) { return v === undefined ? null : v; });
+                // Restore stripped snapshots so undo still works in current session
+                _stripped.forEach(function(s) {
+                    G.schedules[s.sid][s.idx].result._snapshot = s.snap;
+                });
                 localStorage.setItem('ft_save', data);
                 // Electron: also persist to userData so saves survive temp folder clears
                 if (typeof window._electronSave === 'function') window._electronSave(data);
@@ -627,17 +653,32 @@ let G = null;
                 ));
             }
 
-            // Bridge status in header — only in Electron
-            if (typeof window !== 'undefined' && window.electronBridge) {
+            // Bridge status in header — only in Electron, click to toggle on/off
+            if (typeof window !== 'undefined' && window.electronBridge && !window._noBridge) {
                 var _isRunning = _sdkStatus && _sdkStatus.checked && !_sdkStatus.error;
                 var _isConnected = _sdkStatus && _sdkStatus.connected;
                 var _bColor = !_isRunning ? '#EF4444' : _isConnected ? '#10B981' : '#F59E0B';
                 var _bIcon = !_isRunning ? '🔴' : _isConnected ? '🟢' : '🟡';
                 var _bText = !_isRunning ? 'Bridge offline' : _isConnected ? (_sdkStatus.track || 'iRacing connected') : 'Bridge running';
-                sections.push(h('div', { className: 'mh-section', style: { cursor: 'pointer' }, onClick: function() { setTab('settings'); } },
+                var _bridgeEnabled = !!(G.settings && G.settings.bridgeEnabled !== false);
+                sections.push(h('div', {
+                    className: 'mh-section',
+                    style: { cursor: 'pointer', userSelect: 'none' },
+                    onClick: function() {
+                        if (!G.settings) G.settings = {};
+                        G.settings.bridgeEnabled = !_bridgeEnabled;
+                        if (window.electronBridge) {
+                            window.electronBridge.setBridgeEnabled(G.settings.bridgeEnabled);
+                        }
+                        saveGame();
+                        render();
+                    }
+                },
                     h('div', null,
                         h('div', { className: 'mh-label' }, '🔌 Bridge'),
-                        h('div', { className: 'mh-value', style: { color: _bColor, fontSize: '13px' } }, _bIcon + ' ' + _bText),
+                        h('div', { className: 'mh-value', style: { color: _bridgeEnabled ? _bColor : '#475569', fontSize: '13px' } },
+                            _bridgeEnabled ? (_bIcon + ' ' + _bText) : '⭕ Bridge disabled'
+                        ),
                     )
                 ));
             }

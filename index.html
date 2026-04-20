@@ -547,7 +547,7 @@ button:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 
 // ═══ src/data/core.js ═══
 // version
-        const APP_VERSION = 'v1.1.1';
+        const APP_VERSION = 'v1.3.0';
         // home states
         const US_STATES = [
             'AL', 'AR', 'AZ', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY',
@@ -5350,33 +5350,58 @@ var nextNum = 1;
             }
 
             var rosterDrivers = allEntries.map(function(entry, i) {
-                var pal;
-var _attempts = 0;
-do {
-    pal = rnd(PALETTES);
-    var _h = pal[0];
-    var _r = parseInt(_h.slice(0,2),16)/255;
-    var _g = parseInt(_h.slice(2,4),16)/255;
-    var _b = parseInt(_h.slice(4,6),16)/255;
-    var _lum = 0.2126*_r + 0.7152*_g + 0.0722*_b;
-    _attempts++;
-} while ((_lum < 0.05 || _lum > 0.85) && _attempts < 50);
-                var lum = getLuminance(pal[0]);
-                // < 0.35 dark bg, >= 0.35 light bg
-                var numDesign = lum < 0.35
-                    ? rnd(NUMBER_DESIGNS_ON_DARK)
-                    : rnd(NUMBER_DESIGNS_ON_LIGHT);
+                // Check for cached design — reuse if exists to keep cars consistent across exports
+                var _cacheKey = seriesId;
+                var _driver = entry.isGuest ? null : (G.drivers || []).find(function(d) { return d.name === entry.name; });
+                var _cached = _driver && _driver.rosterCache && _driver.rosterCache[_cacheKey];
+
+                var pal, numDesign;
+                if (_cached) {
+                    pal = _cached.pal;
+                    numDesign = _cached.numDesign;
+                } else {
+                    var _attempts = 0;
+                    do {
+                        pal = rnd(PALETTES);
+                        var _h = pal[0];
+                        var _r = parseInt(_h.slice(0,2),16)/255;
+                        var _g = parseInt(_h.slice(2,4),16)/255;
+                        var _b = parseInt(_h.slice(4,6),16)/255;
+                        var _lum = 0.2126*_r + 0.7152*_g + 0.0722*_b;
+                        _attempts++;
+                    } while ((_lum < 0.05 || _lum > 0.85) && _attempts < 50);
+                    var lum = getLuminance(pal[0]);
+                    numDesign = lum < 0.35
+                        ? rnd(NUMBER_DESIGNS_ON_DARK)
+                        : rnd(NUMBER_DESIGNS_ON_LIGHT);
+                    // Store cache on driver object for future exports
+                    if (_driver) {
+                        if (!_driver.rosterCache) _driver.rosterCache = {};
+                        _driver.rosterCache[_cacheKey] = {
+                            pal: pal,
+                            numDesign: numDesign,
+                            carDesign: rnd(CAR_DESIGNS),
+                            suitDesign: rnd(SUIT_DESIGNS),
+                            helmetDesign: rnd(HELMET_DESIGNS),
+                            sponsor1: rndSponsor(true),
+                            sponsor2: rndSponsor(false),
+                        };
+                        _cached = _driver.rosterCache[_cacheKey];
+                    }
+                }
+
                 var stats = entry.stats;
+                var _carDesignNum = _cached ? _cached.carDesign : rnd(CAR_DESIGNS);
                 return {
                     driverName:        entry.name,
-                    carDesign: (entry.isGuest ? '1' : rnd(CAR_DESIGNS)) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
+                    carDesign: (entry.isGuest ? '1' : _carDesignNum) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
                     carNumber:         getNumber(entry.isGuest ? null : entry.carNumber),
-                    suitDesign:        rnd(SUIT_DESIGNS) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
-                    helmetDesign:      rnd(HELMET_DESIGNS) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
+                    suitDesign:        (_cached ? _cached.suitDesign : rnd(SUIT_DESIGNS)) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
+                    helmetDesign:      (_cached ? _cached.helmetDesign : rnd(HELMET_DESIGNS)) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
                     carPath:           (function() { car = (typeof pickSeriesCar !== 'undefined') ? pickSeriesCar(seriesId) : _carPool[0]; return car.path; })(),
                     carId:             car.id,
-                    sponsor1:          rndSponsor(true),
-                    sponsor2:          rndSponsor(false),
+                    sponsor1:          _cached ? _cached.sponsor1 : rndSponsor(true),
+                    sponsor2:          _cached ? _cached.sponsor2 : rndSponsor(false),
                     numberDesign:      numDesign,
                     driverSkill:       stats.relativeSkill || 70,
                     driverAggression:  stats.aggression    || 70,
@@ -9652,7 +9677,33 @@ let G = null;
         function saveGame() {
             if (!G) return;
             try {
+                // Strip snapshots from all but the most recent race result — only
+                // needed for undo and keeping them all costs ~2.5MB of save bloat
+                var _lastResultSid = null, _lastResultIdx = -1, _lastResultTime = 0;
+                Object.keys(G.schedules || {}).forEach(function(sid) {
+                    (G.schedules[sid] || []).forEach(function(race, idx) {
+                        if (race.result && race.result._submitTime && race.result._submitTime > _lastResultTime) {
+                            _lastResultTime = race.result._submitTime;
+                            _lastResultSid = sid;
+                            _lastResultIdx = idx;
+                        }
+                    });
+                });
+                var _stripped = [];
+                Object.keys(G.schedules || {}).forEach(function(sid) {
+                    (G.schedules[sid] || []).forEach(function(race, idx) {
+                        if (race.result && race.result._snapshot) {
+                            if (sid === _lastResultSid && idx === _lastResultIdx) return;
+                            _stripped.push({ sid: sid, idx: idx, snap: race.result._snapshot });
+                            delete race.result._snapshot;
+                        }
+                    });
+                });
                 var data = JSON.stringify(G, function(_k, v) { return v === undefined ? null : v; });
+                // Restore stripped snapshots so undo still works in current session
+                _stripped.forEach(function(s) {
+                    G.schedules[s.sid][s.idx].result._snapshot = s.snap;
+                });
                 localStorage.setItem('ft_save', data);
                 // Electron: also persist to userData so saves survive temp folder clears
                 if (typeof window._electronSave === 'function') window._electronSave(data);
@@ -10180,17 +10231,32 @@ let G = null;
                 ));
             }
 
-            // Bridge status in header — only in Electron
-            if (typeof window !== 'undefined' && window.electronBridge) {
+            // Bridge status in header — only in Electron, click to toggle on/off
+            if (typeof window !== 'undefined' && window.electronBridge && !window._noBridge) {
                 var _isRunning = _sdkStatus && _sdkStatus.checked && !_sdkStatus.error;
                 var _isConnected = _sdkStatus && _sdkStatus.connected;
                 var _bColor = !_isRunning ? '#EF4444' : _isConnected ? '#10B981' : '#F59E0B';
                 var _bIcon = !_isRunning ? '🔴' : _isConnected ? '🟢' : '🟡';
                 var _bText = !_isRunning ? 'Bridge offline' : _isConnected ? (_sdkStatus.track || 'iRacing connected') : 'Bridge running';
-                sections.push(h('div', { className: 'mh-section', style: { cursor: 'pointer' }, onClick: function() { setTab('settings'); } },
+                var _bridgeEnabled = !!(G.settings && G.settings.bridgeEnabled !== false);
+                sections.push(h('div', {
+                    className: 'mh-section',
+                    style: { cursor: 'pointer', userSelect: 'none' },
+                    onClick: function() {
+                        if (!G.settings) G.settings = {};
+                        G.settings.bridgeEnabled = !_bridgeEnabled;
+                        if (window.electronBridge) {
+                            window.electronBridge.setBridgeEnabled(G.settings.bridgeEnabled);
+                        }
+                        saveGame();
+                        render();
+                    }
+                },
                     h('div', null,
                         h('div', { className: 'mh-label' }, '🔌 Bridge'),
-                        h('div', { className: 'mh-value', style: { color: _bColor, fontSize: '13px' } }, _bIcon + ' ' + _bText),
+                        h('div', { className: 'mh-value', style: { color: _bridgeEnabled ? _bColor : '#475569', fontSize: '13px' } },
+                            _bridgeEnabled ? (_bIcon + ' ' + _bText) : '⭕ Bridge disabled'
+                        ),
                     )
                 ));
             }
@@ -18572,6 +18638,13 @@ function sdkInjectResult() {
 }
 
 function renderSdkPanel() {
+    if (typeof window !== 'undefined' && window._noBridge) {
+        return h('div', { className: 'card', style: { marginBottom: '16px', border: '1px solid #1E2433', padding: '14px' } },
+            h('div', { style: { fontSize: '14px', color: '#64748B', textAlign: 'center' } },
+                '🚫 Bridge disabled in this build. Use Race Weekend for iRacing integration.'
+            )
+        );
+    }
     var _bridgeEnabled = true; // on by default
     // honor the toggle
     if (typeof window !== 'undefined' && window.electronBridge) {

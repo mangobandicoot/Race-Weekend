@@ -3,9 +3,14 @@ const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 
+function getSavePath() {
+  return path.join(app.getPath('userData'), 'race-weekend-save.json');
+}
+
 // ─── Bridge process handle ───────────────────────────────────────────────────
+const NO_BRIDGE = !!(require('./package.json').nobridge);
 let bridgeProcess = null;
-let bridgeEnabled = true;
+let bridgeEnabled = !NO_BRIDGE;
 let mainWindow = null;
 
 function getBridgePath() {
@@ -53,10 +58,19 @@ function startBridge() {
 }
 
 function stopBridge() {
+  app.isQuitting = true;
   if (bridgeProcess) {
-    bridgeProcess.kill();
+    try {
+      const { execSync } = require('child_process');
+      execSync(`taskkill /F /PID ${bridgeProcess.pid} /T`, { stdio: 'ignore' });
+    } catch(e) {}
+    try { bridgeProcess.kill(); } catch(e) {}
     bridgeProcess = null;
   }
+  try {
+    const { execSync } = require('child_process');
+    execSync('taskkill /F /IM bridge.exe /T', { stdio: 'ignore' });
+  } catch(e) {}
 }
 
 // ─── Window creation ─────────────────────────────────────────────────────────
@@ -125,10 +139,79 @@ ipcMain.handle('bridge:restart', () => {
   return true;
 });
 
+// ─── Save/Load handlers ───────────────────────────────────────────────────────
+ipcMain.handle('save:write', (_, data) => {
+  try {
+    fs.writeFileSync(getSavePath(), data, 'utf8');
+    try {
+      const backupDir = path.join(path.dirname(getSavePath()), 'backups');
+      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const backupPath = path.join(backupDir, `race-weekend-save-${stamp}.json`);
+      fs.writeFileSync(backupPath, data, 'utf8');
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.startsWith('race-weekend-save-') && f.endsWith('.json'))
+        .sort();
+      if (files.length > 5) {
+        files.slice(0, files.length - 5).forEach(f => {
+          fs.unlinkSync(path.join(backupDir, f));
+        });
+      }
+    } catch (be) {
+      console.warn('[Save] Backup failed:', be.message);
+    }
+    return true;
+  } catch (e) {
+    console.error('[Save] Write failed:', e.message);
+    return false;
+  }
+});
+
+ipcMain.handle('save:read', () => {
+  try {
+    const p = getSavePath();
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
+    return null;
+  } catch (e) {
+    console.error('[Save] Read failed:', e.message);
+    return null;
+  }
+});
+
+ipcMain.handle('save:delete', () => {
+  try {
+    const p = getSavePath();
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+    return true;
+  } catch (e) {
+    console.error('[Save] Delete failed:', e.message);
+    return false;
+  }
+});
+
+ipcMain.handle('bridge:readEvents', () => {
+  try {
+    const eventsPath = path.join(
+      process.env.LOCALAPPDATA || app.getPath('userData'),
+      'iRacing Career Manager',
+      'bridge_events.json'
+    );
+    if (!fs.existsSync(eventsPath)) return null;
+    const raw = fs.readFileSync(eventsPath, 'utf-8');
+    const data = JSON.parse(raw);
+    if (!data.timestamp || (Date.now() / 1000) - data.timestamp > 14400) return null;
+    return data;
+  } catch (e) {
+    console.error('[Bridge] readEvents failed:', e.message);
+    return null;
+  }
+});
+
 // ─── App lifecycle ────────────────────────────────────────────────────────────
+app.disableHardwareAcceleration();
 app.whenReady().then(() => {
   createWindow();
-  startBridge();
+  if (!NO_BRIDGE) startBridge();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -140,7 +223,13 @@ app.on('before-quit', () => {
   stopBridge();
 });
 
-app.on('window-all-closed', () => {
+app.on('will-quit', () => {
+  app.isQuitting = true;
   stopBridge();
-  app.quit(); // Windows: always quit when window closes
+});
+
+app.on('window-all-closed', () => {
+  app.isQuitting = true;
+  stopBridge();
+  app.quit();
 });

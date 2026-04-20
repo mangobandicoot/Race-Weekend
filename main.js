@@ -8,8 +8,9 @@ function getSavePath() {
 }
 
 // ─── Bridge process handle ───────────────────────────────────────────────────
+const NO_BRIDGE = !!(require('./electron/package.json').nobridge);
 let bridgeProcess = null;
-let bridgeEnabled = true;
+let bridgeEnabled = !NO_BRIDGE;
 let mainWindow = null;
 
 function getBridgePath() {
@@ -62,10 +63,20 @@ function startBridge() {
 }
 
 function stopBridge() {
+  app.isQuitting = true; // prevent auto-restart
   if (bridgeProcess) {
-    bridgeProcess.kill();
+    try {
+      const { execSync } = require('child_process');
+      execSync(`taskkill /F /PID ${bridgeProcess.pid} /T`, { stdio: 'ignore' });
+    } catch(e) {}
+    try { bridgeProcess.kill(); } catch(e) {}
     bridgeProcess = null;
   }
+  // Also kill any orphaned bridge.exe just in case
+  try {
+    const { execSync } = require('child_process');
+    execSync('taskkill /F /IM bridge.exe /T', { stdio: 'ignore' });
+  } catch(e) {}
 }
 
 // ─── Window creation ─────────────────────────────────────────────────────────
@@ -207,7 +218,7 @@ app.disableHardwareAcceleration();
 
 app.whenReady().then(() => {
   createWindow();
-  startBridge();
+  if (!NO_BRIDGE) startBridge();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -219,7 +230,13 @@ app.on('before-quit', () => {
   stopBridge();
 });
 
+app.on('will-quit', () => {
+  app.isQuitting = true;
+  stopBridge();
+});
+
 app.on('window-all-closed', () => {
+  app.isQuitting = true;
   stopBridge();
   app.quit(); // Windows: always quit when window closes
 });

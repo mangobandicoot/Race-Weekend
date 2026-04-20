@@ -190,6 +190,13 @@ function sdkInjectResult() {
 }
 
 function renderSdkPanel() {
+    if (typeof window !== 'undefined' && window._noBridge) {
+        return h('div', { className: 'card', style: { marginBottom: '16px', border: '1px solid #1E2433', padding: '14px' } },
+            h('div', { style: { fontSize: '14px', color: '#64748B', textAlign: 'center' } },
+                '🚫 Bridge disabled in this build. Use Race Weekend for iRacing integration.'
+            )
+        );
+    }
     var _bridgeEnabled = true; // on by default
     // honor the toggle
     if (typeof window !== 'undefined' && window.electronBridge) {

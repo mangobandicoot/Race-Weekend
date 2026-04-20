@@ -1,11 +1,12 @@
 {
   "name": "race-weekend",
-  "version": "1.1.1",
+  "version": "1.3.0",
   "description": "iRacing Career Manager",
   "main": "main.js",
   "private": true,
   "scripts": {
     "build:win": "electron-builder --win",
+    "build:win:noflags": "electron-builder --win --config.productName=\"Race Weekend NO FLAGS\" --config.extraMetadata.nobridge=true --config.artifactName=\"RaceWeekendNOFLAGS-setup-${version}.exe\" --config.portable.artifactName=\"RaceWeekendNOFLAGS-portable-${version}.exe\"",
     "pack": "electron-builder --dir"
   },
   "dependencies": {},

@@ -10,10 +10,11 @@ const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'electron', 'package
 const version = pkg.version;
 
 execSync('node build.js', { stdio: 'inherit' });
-execSync('cd electron && npm run build:win', { stdio: 'inherit' });
+execSync('npm run build:win', { stdio: 'inherit', cwd: path.join(__dirname, 'electron') });
+execSync('npm run build:win:noflags', { stdio: 'inherit', cwd: path.join(__dirname, 'electron') });
 
 execSync('git add .', { stdio: 'inherit' });
 execSync(`git commit -m "v${version}"`, { stdio: 'inherit' });
-execSync('git push origin dev', { stdio: 'inherit' });
+execSync('git push origin main', { stdio: 'inherit' });
 
 console.log(`\n✅ Released v${version}`);

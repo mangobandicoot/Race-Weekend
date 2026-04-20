@@ -203,33 +203,58 @@ var nextNum = 1;
             }
 
             var rosterDrivers = allEntries.map(function(entry, i) {
-                var pal;
-var _attempts = 0;
-do {
-    pal = rnd(PALETTES);
-    var _h = pal[0];
-    var _r = parseInt(_h.slice(0,2),16)/255;
-    var _g = parseInt(_h.slice(2,4),16)/255;
-    var _b = parseInt(_h.slice(4,6),16)/255;
-    var _lum = 0.2126*_r + 0.7152*_g + 0.0722*_b;
-    _attempts++;
-} while ((_lum < 0.05 || _lum > 0.85) && _attempts < 50);
-                var lum = getLuminance(pal[0]);
-                // < 0.35 dark bg, >= 0.35 light bg
-                var numDesign = lum < 0.35
-                    ? rnd(NUMBER_DESIGNS_ON_DARK)
-                    : rnd(NUMBER_DESIGNS_ON_LIGHT);
+                // Check for cached design — reuse if exists to keep cars consistent across exports
+                var _cacheKey = seriesId;
+                var _driver = entry.isGuest ? null : (G.drivers || []).find(function(d) { return d.name === entry.name; });
+                var _cached = _driver && _driver.rosterCache && _driver.rosterCache[_cacheKey];
+
+                var pal, numDesign;
+                if (_cached) {
+                    pal = _cached.pal;
+                    numDesign = _cached.numDesign;
+                } else {
+                    var _attempts = 0;
+                    do {
+                        pal = rnd(PALETTES);
+                        var _h = pal[0];
+                        var _r = parseInt(_h.slice(0,2),16)/255;
+                        var _g = parseInt(_h.slice(2,4),16)/255;
+                        var _b = parseInt(_h.slice(4,6),16)/255;
+                        var _lum = 0.2126*_r + 0.7152*_g + 0.0722*_b;
+                        _attempts++;
+                    } while ((_lum < 0.05 || _lum > 0.85) && _attempts < 50);
+                    var lum = getLuminance(pal[0]);
+                    numDesign = lum < 0.35
+                        ? rnd(NUMBER_DESIGNS_ON_DARK)
+                        : rnd(NUMBER_DESIGNS_ON_LIGHT);
+                    // Store cache on driver object for future exports
+                    if (_driver) {
+                        if (!_driver.rosterCache) _driver.rosterCache = {};
+                        _driver.rosterCache[_cacheKey] = {
+                            pal: pal,
+                            numDesign: numDesign,
+                            carDesign: rnd(CAR_DESIGNS),
+                            suitDesign: rnd(SUIT_DESIGNS),
+                            helmetDesign: rnd(HELMET_DESIGNS),
+                            sponsor1: rndSponsor(true),
+                            sponsor2: rndSponsor(false),
+                        };
+                        _cached = _driver.rosterCache[_cacheKey];
+                    }
+                }
+
                 var stats = entry.stats;
+                var _carDesignNum = _cached ? _cached.carDesign : rnd(CAR_DESIGNS);
                 return {
                     driverName:        entry.name,
-                    carDesign: (entry.isGuest ? '1' : rnd(CAR_DESIGNS)) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
+                    carDesign: (entry.isGuest ? '1' : _carDesignNum) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
                     carNumber:         getNumber(entry.isGuest ? null : entry.carNumber),
-                    suitDesign:        rnd(SUIT_DESIGNS) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
-                    helmetDesign:      rnd(HELMET_DESIGNS) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
+                    suitDesign:        (_cached ? _cached.suitDesign : rnd(SUIT_DESIGNS)) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
+                    helmetDesign:      (_cached ? _cached.helmetDesign : rnd(HELMET_DESIGNS)) + ',' + pal[0] + ',' + pal[1] + ',' + pal[2],
                     carPath:           (function() { car = (typeof pickSeriesCar !== 'undefined') ? pickSeriesCar(seriesId) : _carPool[0]; return car.path; })(),
                     carId:             car.id,
-                    sponsor1:          rndSponsor(true),
-                    sponsor2:          rndSponsor(false),
+                    sponsor1:          _cached ? _cached.sponsor1 : rndSponsor(true),
+                    sponsor2:          _cached ? _cached.sponsor2 : rndSponsor(false),
                     numberDesign:      numDesign,
                     driverSkill:       stats.relativeSkill || 70,
                     driverAggression:  stats.aggression    || 70,
