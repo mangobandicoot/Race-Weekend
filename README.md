@@ -69,7 +69,7 @@ Feel free to [submit any bugs you encounter](https://github.com/mangobandicoot/R
 
 ## Notes
 
-**Privacy.** Race Weekend makes no network calls. Everything runs locally. Your save file stays on your machine, and the only external connection is the bridge talking to iRacing on localhost.
+**Privacy.** Race Weekend makes no network calls. Everything runs locally. Your save file stays on your machine, and the only external connection is the bridge talking to iRacing on localhost. **There is now a NOFLAGS version which disables the flag injection entirely, for those who prefer it.**
 
 **Built with AI assistance.** The app was conceived and designed by me. Claude (Anthropic) was used extensively during development to help write and debug code.
 
