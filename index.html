@@ -547,7 +547,7 @@ button:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 
 // ═══ src/data/core.js ═══
 // version
-        const APP_VERSION = 'v1.3.0';
+        const APP_VERSION = 'v1.2.0';
         // home states
         const US_STATES = [
             'AL', 'AR', 'AZ', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY',
@@ -10232,7 +10232,7 @@ let G = null;
             }
 
             // Bridge status in header — only in Electron, click to toggle on/off
-            if (typeof window !== 'undefined' && window.electronBridge && !window._noBridge) {
+            if (typeof window !== 'undefined' && window.electronBridge && !window._appIsNoFlags) {
                 var _isRunning = _sdkStatus && _sdkStatus.checked && !_sdkStatus.error;
                 var _isConnected = _sdkStatus && _sdkStatus.connected;
                 var _bColor = !_isRunning ? '#EF4444' : _isConnected ? '#10B981' : '#F59E0B';
@@ -17869,6 +17869,13 @@ let G = null;
 
         //  BOOT
         window.addEventListener('DOMContentLoaded', () => {
+            // Check if this is a NO FLAGS build and set global flag
+            window._appIsNoFlags = false;
+            if (typeof window.electronBridge !== 'undefined' && window.electronBridge.isNoFlags) {
+                window.electronBridge.isNoFlags().then(function(val) {
+                    window._appIsNoFlags = !!val;
+                }).catch(function() {});
+            }
             $('setup-form').addEventListener('submit', e => {
                 e.preventDefault();
                 const name = $('driver-name-input').value.trim();
@@ -18638,10 +18645,10 @@ function sdkInjectResult() {
 }
 
 function renderSdkPanel() {
-    if (typeof window !== 'undefined' && window._noBridge) {
+    if (typeof window !== 'undefined' && window.electronBridge && window._appIsNoFlags) {
         return h('div', { className: 'card', style: { marginBottom: '16px', border: '1px solid #1E2433', padding: '14px' } },
             h('div', { style: { fontSize: '14px', color: '#64748B', textAlign: 'center' } },
-                '🚫 Bridge disabled in this build. Use Race Weekend for iRacing integration.'
+                '🚫 This is the NO FLAGS build. iRacing bridge is disabled. Use Race Weekend for flag injection.'
             )
         );
     }

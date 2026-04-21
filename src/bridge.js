@@ -190,10 +190,10 @@ function sdkInjectResult() {
 }
 
 function renderSdkPanel() {
-    if (typeof window !== 'undefined' && window._noBridge) {
+    if (typeof window !== 'undefined' && window.electronBridge && window._appIsNoFlags) {
         return h('div', { className: 'card', style: { marginBottom: '16px', border: '1px solid #1E2433', padding: '14px' } },
             h('div', { style: { fontSize: '14px', color: '#64748B', textAlign: 'center' } },
-                '🚫 Bridge disabled in this build. Use Race Weekend for iRacing integration.'
+                '🚫 This is the NO FLAGS build. iRacing bridge is disabled. Use Race Weekend for flag injection.'
             )
         );
     }

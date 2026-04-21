@@ -244,6 +244,13 @@
 
         //  BOOT
         window.addEventListener('DOMContentLoaded', () => {
+            // Check if this is a NO FLAGS build and set global flag
+            window._appIsNoFlags = false;
+            if (typeof window.electronBridge !== 'undefined' && window.electronBridge.isNoFlags) {
+                window.electronBridge.isNoFlags().then(function(val) {
+                    window._appIsNoFlags = !!val;
+                }).catch(function() {});
+            }
             $('setup-form').addEventListener('submit', e => {
                 e.preventDefault();
                 const name = $('driver-name-input').value.trim();

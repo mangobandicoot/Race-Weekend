@@ -2,9 +2,6 @@
  * preload.js
  * Runs in a privileged context with access to Node APIs,
  * but exposes only a safe, narrow API to the renderer via contextBridge.
- *
- * The renderer's bridge.js already checks for window.electronBridge —
- * this is the implementation of that contract.
  */
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -13,8 +10,11 @@ contextBridge.exposeInMainWorld('_electronSave', (data) => ipcRenderer.invoke('s
 contextBridge.exposeInMainWorld('_electronLoad', () => ipcRenderer.invoke('save:read'));
 contextBridge.exposeInMainWorld('_electronDelete', () => ipcRenderer.invoke('save:delete'));
 
-// Flag for no-bridge builds — always false in root preload (bridge builds only)
-contextBridge.exposeInMainWorld('_noBridge', false);
+// _noBridge — resolved via IPC so no file system access needed in preload
+// Defaults to false until main process responds
+let _noBridgeValue = false;
+ipcRenderer.invoke('bridge:isNoFlags').then(val => { _noBridgeValue = !!val; }).catch(() => {});
+contextBridge.exposeInMainWorld('_noBridge', false); // safe default — updated at runtime via electronBridge
 
 contextBridge.exposeInMainWorld('electronBridge', {
   // Whether the bridge auto-starts on launch
@@ -27,9 +27,12 @@ contextBridge.exposeInMainWorld('electronBridge', {
   // Manual restart
   restartBridge: () => ipcRenderer.invoke('bridge:restart'),
 
-  // App version (useful for "About" display)
+  // App version
   getVersion: () => ipcRenderer.invoke('app:version'),
 
-  // Bridge race event log (DNFs + yellows written at session end)
+  // Bridge race event log
   readBridgeEvents: () => ipcRenderer.invoke('bridge:readEvents'),
+
+  // Is this a no-flags build?
+  isNoFlags: () => ipcRenderer.invoke('bridge:isNoFlags'),
 });

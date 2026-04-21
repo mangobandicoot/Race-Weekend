@@ -654,7 +654,7 @@ let G = null;
             }
 
             // Bridge status in header — only in Electron, click to toggle on/off
-            if (typeof window !== 'undefined' && window.electronBridge && !window._noBridge) {
+            if (typeof window !== 'undefined' && window.electronBridge && !window._appIsNoFlags) {
                 var _isRunning = _sdkStatus && _sdkStatus.checked && !_sdkStatus.error;
                 var _isConnected = _sdkStatus && _sdkStatus.connected;
                 var _bColor = !_isRunning ? '#EF4444' : _isConnected ? '#10B981' : '#F59E0B';

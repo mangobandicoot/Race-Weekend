@@ -1,6 +1,18 @@
 {
-  "name": "iracing-career-manager",
-  "version": "1.0.0",
+  "name": "race-weekend",
+  "version": "1.2.0",
   "description": "iRacing Career Manager",
-  "main": "main.js"
+  "author": "Matt Hodgkins",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "build:win": "electron-builder --win",
+    "build:win:noflags": "electron-builder --win --config.productName=\"Race Weekend NO FLAGS\" --config.extraMetadata.nobridge=true --config.artifactName=\"RaceWeekendNOFLAGS-setup-${version}.exe\" --config.portable.artifactName=\"RaceWeekendNOFLAGS-portable-${version}.exe\"",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.9.1"
+  }
 }

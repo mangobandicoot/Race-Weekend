@@ -1,0 +1,18 @@
+{
+  "appId": "com.iracing.career-manager",
+  "productName": "Race Weekend NO FLAGS",
+  "asar": true,
+  "directories": {
+    "output": "dist",
+    "buildResources": "../build-assets",
+    "app": "."
+  },
+  "files": [
+    "main.js",
+    "preload.js",
+    "index.html",
+    "src/**",
+    "fonts/**"
+  ],
+  "extraResources": []
+}
