@@ -885,13 +885,13 @@
                 const parsed = parseRaceResults(raw, !!multiClass);
                 if (parsed.length) {
                     orderTa.value = parsed.map(p => {
-                        let line = p.name;
-                        if (p.status && p.status !== 'null') line += ` ${p.status}`;
-                        if (p.lapTime) line += `\t${p.lapTime}`;
-                        if (p.gap) line += `\t${p.gap}`;
-                        if (p.carClass) line += `\t[${p.carClass}]`;
-                        return line;
-                    }).join('\n');
+    let line = p.name;
+    if (p.gap) line += `\t${p.gap}`;
+    if (p.lapTime) line += `\t${p.lapTime}`;
+    if (p.status && p.status !== 'null') line += `\t${p.status}`;
+    if (p.carClass) line += `\t[${p.carClass}]`;
+    return line;
+}).join('\n');
                     fsIn.value = String(parsed.length);
                     if (lastPlaceCb && lastPlaceCb.checked) posIn.value = String(parsed.length);
                     autoDetectPosition();
@@ -1122,29 +1122,57 @@
             const s = getSeries(seriesId);
             const result = race.result;
 
-            // Fetch bridge events sidecar, then build modal
-            const _doBuild = function(bridgeEvents) {
-                _openRaceHistoryModal(seriesId, raceIdx, bridgeEvents);
+            // Fetch bridge data: events log + flag summary
+            const _doBuild = function(bridgeEvents, sdkFlags) {
+                _openRaceHistoryModal(seriesId, raceIdx, bridgeEvents, sdkFlags);
             };
-            if (window.electronBridge && window.electronBridge.readBridgeEvents) {
-                window.electronBridge.readBridgeEvents().then(function(evData) {
-                    let events = null;
-                    if (evData && evData.events && evData.events.length) {
-                        // Match on first word of track name — loose but avoids "Bristol Motor Speedway" vs "Bristol"
-                        const trackWord = (race.track || '').split(' ')[0].toLowerCase();
-                        const evTrackWord = (evData.track || '').split(' ')[0].toLowerCase();
-                        if (!trackWord || !evTrackWord || trackWord === evTrackWord) {
-                            events = evData.events;
+            
+            let hasEvents = false, hasFlags = false;
+            let events = null, flags = null;
+            
+            // Try to fetch from bridge HTTP API (live flag data) and JSON (event log)
+            if (window.electronBridge) {
+                // Try /flags endpoint first (has the actual counts)
+                fetch('http://localhost:54321/flags')
+                    .then(r => r.json())
+                    .then(function(flagData) {
+                        if (flagData && flagData.yellow_count !== undefined) {
+                            flags = flagData;
                         }
-                    }
-                    _doBuild(events);
-                }).catch(function() { _doBuild(null); });
+                        hasFlags = true;
+                        if (hasEvents) _doBuild(events, flags);
+                    })
+                    .catch(function() {
+                        hasFlags = true;
+                        if (hasEvents) _doBuild(events, flags);
+                    });
+                
+                // Also try to read event log from JSON
+                if (window.electronBridge.readBridgeEvents) {
+                    window.electronBridge.readBridgeEvents().then(function(evData) {
+                        if (evData && evData.events && evData.events.length) {
+                            const trackWord = (race.track || '').split(' ')[0].toLowerCase();
+                            const evTrackWord = (evData.track || '').split(' ')[0].toLowerCase();
+                            if (!trackWord || !evTrackWord || trackWord === evTrackWord) {
+                                events = evData.events;
+                            }
+                        }
+                        hasEvents = true;
+                        if (hasFlags) _doBuild(events, flags);
+                    }).catch(function() {
+                        hasEvents = true;
+                        if (hasFlags) _doBuild(events, flags);
+                    });
+                } else {
+                    hasEvents = true;
+                    if (hasFlags) _doBuild(events, flags);
+                }
             } else {
-                _doBuild(null);
+                _doBuild(null, null);
             }
         }
 
-        function _openRaceHistoryModal(seriesId, raceIdx, bridgeEvents) {
+        function _openRaceHistoryModal(seriesId, raceIdx, bridgeEvents, sdkFlags) {
             const sched = G.schedules[seriesId] || [];
             const race = sched[raceIdx];
             if (!race || !race.result) return;
@@ -1153,8 +1181,8 @@
            const isDQ = result.dq || false;
             const pc = isDQ ? '#F97316' : result.dnf ? '#EF4444' : result.position === 1 ? '#F59E0B' : result.position <= 5 ? '#10B981' : '#94A3B8';
             const resultLabel = isDQ ? 'DQ' : result.dnf ? 'DNF' : `P${result.position}`;
-            // SDK flags data — attached when result was imported from bridge
-            const sdkFlags = race._sdkFlags || result._sdkFlags || null;
+            // SDK flags data — comes from bridge /flags endpoint or race._sdkFlags or result._sdkFlags
+            const sdkFlagsData = sdkFlags || race._sdkFlags || result._sdkFlags || null;
 
             const content = h('div', null,
                 h('div', { className: 'modal-eyebrow' }, `${s.short} — Round ${race.round}`),
@@ -1321,14 +1349,14 @@
                 })(),
 
                 // SDK flags summary — only shows when result was imported from bridge
-                sdkFlags ? h('div', {
+                sdkFlagsData ? h('div', {
                     style: { background: '#060A10', border: '1px solid #1E2433', borderRadius: '8px', padding: '12px 14px', marginTop: '14px' }
                 },
                     h('div', { style: { fontSize: '11px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, marginBottom: '8px' } }, '🚩 Race Flags — iRacing SDK'),
-                    h('div', { style: { display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: sdkFlags.black_flags && sdkFlags.black_flags.length ? '10px' : '0' } },
+                    h('div', { style: { display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: sdkFlagsData.black_flags && sdkFlagsData.black_flags.length ? '10px' : '0' } },
                         h('div', null,
                             h('div', { style: { fontSize: '11px', color: '#64748B' } }, 'CAUTIONS'),
-                            h('div', { style: { fontSize: '20px', fontWeight: 900, color: '#F59E0B' } }, String(sdkFlags.yellow_count || 0)),
+                            h('div', { style: { fontSize: '20px', fontWeight: 900, color: '#F59E0B' } }, String(sdkFlagsData.yellow_count || 0)),
                         ),
                         h('div', null,
                             h('div', { style: { fontSize: '11px', color: '#64748B' } }, 'BLACK FLAGS'),

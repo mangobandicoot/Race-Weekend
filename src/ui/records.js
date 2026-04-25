@@ -335,12 +335,18 @@
 
             // track records
             const records = G.trackRecords || {};
-            const recordEntries = Object.entries(records).filter(function ([track, rec]) { return rec.overall || rec.personal; });
+            const recordEntries = Object.entries(records).filter(function ([key, rec]) { return rec.overall || rec.personal; });
             if (recordEntries.length) {
                 const rc = h('div', { className: 'card', style: { marginBottom: '14px' } });
                 rc.appendChild(cardTitle('Track Records'));
                 const grid = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: '8px' } });
-                recordEntries.forEach(function ([track, rec]) {
+                recordEntries.forEach(function ([key, rec]) {
+                    const parts = key.split('::');
+                    const seriesId = parts.length > 1 ? parts[0] : null;
+                    const track = parts.length > 1 ? parts[1] : key;
+                    const series = seriesId ? getSeries(seriesId) : null;
+                    const seriesName = series ? series.short : seriesId;
+                    const trackLabel = seriesName ? seriesName + ' - ' + track : track;
                     const isYours = rec.overall && rec.overall.driver === G.driverName;
                     grid.appendChild(h('div', {
                         style: {
@@ -348,7 +354,7 @@
                             borderRadius: '8px', padding: '10px 12px',
                         }
                     },
-                        h('div', { style: { fontSize: '13px', fontWeight: 800, color: '#F9FAFB', marginBottom: '4px' } }, track),
+                        h('div', { style: { fontSize: '13px', fontWeight: 800, color: '#F9FAFB', marginBottom: '4px' } }, trackLabel),
                         rec.overall ? h('div', { style: { fontSize: '13px', color: isYours ? '#F59E0B' : '#94A3B8' } },
                             `⚡ ${rec.overall.time} — ${rec.overall.driver}${isYours ? ' (you)' : ''}`
                         ) : null,

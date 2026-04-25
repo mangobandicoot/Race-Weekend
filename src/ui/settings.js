@@ -11,13 +11,45 @@
             // driver profile + career info side by side
             const bioIn = h('textarea', { rows: 2, placeholder: 'Short bio or notes (optional)...', style: { width: '100%', marginTop: '6px' } });
             bioIn.value = G.playerBio || '';
+            const countrySel = h('select', { style: { width: '100%', marginTop: '6px', marginBottom: '8px' } });
+            ['United States', 'Canada', 'Mexico', 'International'].forEach(function(country) {
+                const opt = h('option', { value: country }, country);
+                const currentCountry = G.homeState && G.homeState.startsWith('CA_') ? 'Canada' 
+                    : G.homeState && G.homeState.startsWith('MX_') ? 'Mexico'
+                    : G.homeState && G.homeState.startsWith('INTL_') ? 'International'
+                    : 'United States';
+                if (country === currentCountry) opt.selected = true;
+                countrySel.appendChild(opt);
+            });
+            
             const stateSel = h('select', { style: { width: '100%', marginTop: '6px' } });
-            (typeof US_STATES !== 'undefined' ? US_STATES : ['ME', 'NC', 'VA', 'TN', 'GA', 'SC', 'FL', 'TX', 'OH', 'IN', 'KY', 'WI', 'IL', 'PA', 'MI', 'International'])
-                .forEach(st => {
-                    const opt = h('option', { value: st }, (typeof US_STATE_NAMES !== 'undefined' ? US_STATE_NAMES[st] : null) || st);
-                    if (st === (G.homeState || 'ME')) opt.selected = true;
-                    stateSel.appendChild(opt);
+            
+            function updateStateSelector() {
+                stateSel.innerHTML = '';
+                const selectedCountry = countrySel.value;
+                let opts = [];
+                
+                if (selectedCountry === 'Canada') {
+                    opts = typeof CANADIAN_PROVINCES !== 'undefined' ? Object.keys(CANADIAN_PROVINCES).map(function(code) { return { code: 'CA_' + code, name: CANADIAN_PROVINCES[code] }; }) : [];
+                } else if (selectedCountry === 'Mexico') {
+                    opts = typeof MEXICAN_STATES !== 'undefined' ? Object.keys(MEXICAN_STATES).map(function(code) { return { code: 'MX_' + code, name: MEXICAN_STATES[code] }; }) : [];
+                } else if (selectedCountry === 'International') {
+                    var regions = { Europe: 'Europe', CentralAmerica: 'Central America', SouthAmerica: 'South America', Africa: 'Africa', AsiaPacific: 'Asia-Pacific', Australia: 'Australia' };
+                    opts = Object.keys(regions).map(function(code) { return { code: 'INTL_' + code, name: regions[code] }; });
+                } else {
+                    var us = (typeof US_STATES !== 'undefined' ? US_STATES : ['ME', 'NC', 'VA', 'TN', 'GA', 'SC', 'FL', 'TX', 'OH', 'IN', 'KY', 'WI', 'IL', 'PA', 'MI']);
+                    opts = us.map(function(st) { return { code: st, name: (typeof US_STATE_NAMES !== 'undefined' ? US_STATE_NAMES[st] : null) || st }; });
+                }
+                
+                opts.forEach(function(opt) {
+                    var optEl = h('option', { value: opt.code }, opt.name);
+                    if (opt.code === (G.homeState || 'ME')) optEl.selected = true;
+                    stateSel.appendChild(optEl);
                 });
+            }
+            
+            countrySel.addEventListener('change', updateStateSelector);
+            updateStateSelector();
             const saveBtn = mkBtn('Save Profile', 'btn btn-sm btn-primary', () => {
                 G.homeState = stateSel.value;
                 G.playerBio = bioIn.value.trim();
@@ -42,7 +74,9 @@
                     h('div', { style: { fontSize: '13px', color: '#94A3B8', marginBottom: '6px' } },
                         G.driverName, h('span', { style: { color: '#475569', marginLeft: '6px' } }, '— name locked')
                     ),
-                    h('label', { className: 'modal-label', style: { marginTop: '8px', display: 'block' } }, 'Home State'),
+                    h('label', { className: 'modal-label', style: { marginTop: '8px', display: 'block' } }, 'Home Country'),
+                    countrySel,
+                    h('label', { className: 'modal-label', style: { marginTop: '8px', display: 'block' } }, 'Home State / Province'),
                     stateSel,
                     h('label', { className: 'modal-label', style: { marginTop: '8px', display: 'block' } }, 'Broadcast Name (optional)'),
                     (function() {
@@ -221,9 +255,8 @@
                         {
                             label: 'Legends Road Courses',
                             tracks: [
-                                'Lime Rock Park', 'Watkins Glen International', 'Road America',
-                                'Mid-Ohio Sports Car Course', 'Virginia International Raceway',
-                                'Sebring International Raceway',
+                                'Watkins Glen International', 'Road America',
+                                'Mid-Ohio Sports Car Course', 'Sebring International Raceway',
                             ]
                         },
                         {

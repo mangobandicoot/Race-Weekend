@@ -1,5 +1,5 @@
 // version
-        const APP_VERSION = 'v1.2.0';
+        const APP_VERSION = 'v1.1.2';
         // home states
         const US_STATES = [
             'AL', 'AR', 'AZ', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY',
@@ -21,8 +21,25 @@
             WV: 'West Virginia', WY: 'Wyoming', DC: 'Washington D.C.', International: 'International',
         };
 
-        // weighted toward southeast/midwest - thats where short track racing lives
-        const HOME_STATE_POOL = [
+        const CANADIAN_PROVINCES = {
+            AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba', NB: 'New Brunswick',
+            NL: 'Newfoundland & Labrador', NS: 'Nova Scotia', NT: 'Northwest Territories',
+            NU: 'Nunavut', ON: 'Ontario', PE: 'Prince Edward Island', QC: 'Quebec',
+            SK: 'Saskatchewan', YT: 'Yukon',
+        };
+
+        const MEXICAN_STATES = {
+            AGS: 'Aguascalientes', BC: 'Baja California', BCS: 'Baja California Sur',
+            CAMP: 'Campeche', COAH: 'Coahuila', COL: 'Colima', CDMX: 'Mexico City',
+            DGO: 'Durango', GTO: 'Guanajuato', GRO: 'Guerrero', HGO: 'Hidalgo',
+            JAL: 'Jalisco', MEX: 'State of Mexico', MICH: 'Michoacán', MOR: 'Morelos',
+            NAY: 'Nayarit', OAX: 'Oaxaca', PUE: 'Puebla', QRO: 'Querétaro',
+            QROO: 'Quintana Roo', SLP: 'San Luis Potosí', SIN: 'Sinaloa', SON: 'Sonora',
+            TAB: 'Tabasco', TAMS: 'Tamaulipas', TLX: 'Tlaxcala', VER: 'Veracruz',
+            YUC: 'Yucatán', ZAC: 'Zacatecas',
+        };
+
+        const HOME_STATE_POOL_ALL = [
             ...Array(8).fill('NC'), ...Array(7).fill('VA'), ...Array(7).fill('TN'),
             ...Array(6).fill('GA'), ...Array(6).fill('SC'), ...Array(5).fill('FL'),
             ...Array(5).fill('OH'), ...Array(5).fill('IN'), ...Array(4).fill('KY'),
@@ -32,8 +49,13 @@
             ...Array(2).fill('NY'), ...Array(2).fill('CA'), ...Array(2).fill('MN'),
             ...Array(1).fill('WV'), ...Array(1).fill('LA'), ...Array(1).fill('OK'),
             ...Array(1).fill('KS'), ...Array(1).fill('NE'), ...Array(1).fill('IA'),
-            ...Array(1).fill('International'),
+            ...Array(2).fill('CA_ON'), ...Array(2).fill('CA_QC'),
+            ...Array(1).fill('CA_AB'), ...Array(1).fill('CA_BC'), ...Array(1).fill('CA_MB'),
+            ...Array(1).fill('MX_TX'), ...Array(1).fill('MX_SON'), ...Array(1).fill('MX_CA'),
         ];
+
+        // weighted toward southeast/midwest - thats where short track racing lives
+        const HOME_STATE_POOL = HOME_STATE_POOL_ALL;
         // home region map
         const HOME_REGIONS = {
             'New England': ['ME', 'NH', 'VT', 'MA', 'CT', 'RI', 'NY'],
@@ -43,6 +65,12 @@
             'South Central': ['TX', 'OK', 'AR', 'LA'],
             'Plains': ['KS', 'NE', 'SD', 'ND', 'MN', 'MT', 'WY', 'CO', 'ID'],
             'West': ['CA', 'OR', 'WA', 'NV', 'AZ', 'UT', 'NM'],
+            'Eastern Canada': ['CA_ON', 'CA_QC', 'CA_NB', 'CA_NS', 'CA_PE', 'CA_NL'],
+            'Western Canada': ['CA_BC', 'CA_AB', 'CA_MB', 'CA_SK'],
+            'Northern Canada': ['CA_NT', 'CA_NU', 'CA_YT'],
+            'Northern Mexico': ['MX_SON', 'MX_COAH', 'MX_DGO', 'MX_NL', 'MX_TX'],
+            'Central Mexico': ['MX_JAL', 'MX_GTO', 'MX_SLP', 'MX_CDMX', 'MX_MEX', 'MX_MICH', 'MX_QRO', 'MX_HGO'],
+            'Southern Mexico': ['MX_VER', 'MX_OAX', 'MX_TAB', 'MX_CAMP', 'MX_QROO', 'MX_YUC'],
         };
 
         function getHomeRegion(state) {
@@ -51,6 +79,53 @@
                 if (HOME_REGIONS[region].indexOf(state) >= 0) return region;
             }
             return null;
+        }
+
+        // Map home state/province/region to default home track for the 'home bonus'
+        function getHomeTrackForState(state) {
+            if (!state) return null;
+            // US states
+            const usStateToTrack = {
+                'ME': 'Oxford Plains Speedway', 'NH': 'New Hampshire Motor Speedway', 'VT': 'New Hampshire Motor Speedway',
+                'MA': 'New Hampshire Motor Speedway', 'CT': 'Thompson Speedway Motorsports Park', 'RI': 'New Hampshire Motor Speedway',
+                'NY': 'Oswego Speedway', 'NJ': 'New Jersey Motorsports Park', 'PA': 'Penn National Raceway',
+                'DE': 'Monmouth Park', 'MD': 'Hagerstown Speedway', 'VA': 'Virginia International Raceway',
+                'WV': 'Martinsville Speedway', 'NC': 'Hickory Motor Speedway', 'SC': 'Myrtle Beach Speedway',
+                'GA': 'Lanier National Speedway', 'FL': 'New Smyrna Speedway', 'TN': 'Volunteer Speedway',
+                'AL': 'Talladega Short Track', 'MS': 'Mississippi Motor Speedway', 'LA': 'Five Flags Speedway',
+                'OH': 'Cleveland Public Sq. Stage', 'IN': 'Indianapolis Motor Speedway', 'KY': 'Speedway',
+                'MI': 'Michigan International Speedway', 'WI': 'Slinger Speedway', 'IL': 'Gateway Motorsports Park',
+                'MO': 'Gateway Motorsports Park', 'IA': 'Iowa Speedway - Oval - 2011', 'TX': 'Texas Motor Speedway',
+                'OK': 'Las Vegas Motor Speedway', 'KS': 'Kansas Speedway', 'NE': 'Kearney Speedway',
+                'SD': 'South Dakota Speedway', 'ND': 'Madison International Speedway', 'MN': 'The Milwaukee Mile',
+                'MT': 'The Milwaukee Mile', 'WY': 'Las Vegas Motor Speedway', 'CO': 'Las Vegas Motor Speedway',
+                'ID': 'Spokane Raceway', 'CA': 'Kern Raceway', 'NV': 'Las Vegas Motor Speedway',
+                'OR': 'Portland International Raceway', 'WA': 'Spokane Raceway', 'AZ': 'Phoenix Raceway',
+                'UT': 'Salt Lake City', 'NM': 'Albuquerque Dragway',
+            };
+            // Canadian provinces
+            const caProvinceToTrack = {
+                'CA_ON': 'New Hampshire Motor Speedway', 'CA_QC': 'New Hampshire Motor Speedway',
+                'CA_NB': 'New Hampshire Motor Speedway', 'CA_NS': 'New Hampshire Motor Speedway',
+                'CA_PE': 'New Hampshire Motor Speedway', 'CA_NL': 'New Hampshire Motor Speedway',
+                'CA_BC': 'Spokane Raceway', 'CA_AB': 'Las Vegas Motor Speedway',
+                'CA_MB': 'The Milwaukee Mile', 'CA_SK': 'The Milwaukee Mile',
+                'CA_NT': 'The Milwaukee Mile', 'CA_NU': 'The Milwaukee Mile', 'CA_YT': 'Las Vegas Motor Speedway',
+            };
+            // Mexican states
+            const mxStateToTrack = {
+                'MX_TX': 'Texas Motor Speedway', 'MX_SON': 'Las Vegas Motor Speedway', 'MX_CA': 'Kern Raceway',
+                'MX_BC': 'Kern Raceway', 'MX_BCS': 'Las Vegas Motor Speedway', 'MX_DGO': 'Las Vegas Motor Speedway',
+                'MX_COAH': 'Texas Motor Speedway', 'MX_NL': 'Texas Motor Speedway', 'MX_TAB': 'Texas Motor Speedway',
+                'MX_TAMS': 'Texas Motor Speedway', 'MX_JAL': 'Las Vegas Motor Speedway', 'MX_GTO': 'Texas Motor Speedway',
+                'MX_MICH': 'Las Vegas Motor Speedway', 'MX_CDMX': 'Las Vegas Motor Speedway', 'MX_MEX': 'Las Vegas Motor Speedway',
+                'MX_MON': 'Las Vegas Motor Speedway', 'MX_QRO': 'Texas Motor Speedway', 'MX_SLP': 'Texas Motor Speedway',
+                'MX_NAY': 'Las Vegas Motor Speedway', 'MX_OAX': 'Texas Motor Speedway', 'MX_PUE': 'Las Vegas Motor Speedway',
+                'MX_VER': 'Texas Motor Speedway', 'MX_YUC': 'Texas Motor Speedway', 'MX_QROO': 'Texas Motor Speedway',
+                'MX_CAMP': 'Texas Motor Speedway', 'MX_HGO': 'Texas Motor Speedway', 'MX_COL': 'Las Vegas Motor Speedway',
+                'MX_ZAC': 'Las Vegas Motor Speedway', 'MX_AGS': 'Las Vegas Motor Speedway', 'MX_TLX': 'Las Vegas Motor Speedway',
+            };
+            return usStateToTrack[state] || caProvinceToTrack[state] || mxStateToTrack[state] || null;
         }
 
         function isSameRegion(stateA, stateB) {
@@ -127,13 +202,13 @@
             { id: 'sk_modified', name: 'SK Modified Series', short: 'SK Modified', tier: 2, races: 14, pay: 250, winBonus: 1000, reqRep: 30, reqFans: 200, color: '#EF4444', maxTerm: 1, maxTm: 1, fee: 200, carCostNew: 0, carCostUsed: 0, isSideStep: true, carType: 'SK Modified', desc: 'Modified racing on asphalt ovals. New England short track royalty. Fast, fenders-optional, and brutally competitive.' },
             // main ladder
             { id: 'mini_stock', name: 'Mini Stock Series', short: 'Mini Stock', tier: 1, races: 16, pay: 120, winBonus: 600, reqRep: 0, reqFans: 0, color: '#8B5CF6', maxTerm: 1, maxTm: 1, fee: 120, carCostNew: 1500, carCostUsed: 600, desc: 'Four cylinders, 200 horses, zero dignity. Everyone starts here.' },
-            { id: 'street_stock', name: 'Street Stock Series', short: 'Street Stock', tier: 2, races: 18, pay: 280, winBonus: 1200, reqRep: 90, reqFans: 3000, color: '#3B82F6', maxTerm: 1, maxTm: 1, fee: 250, carCostNew: 4000, carCostUsed: 1800, desc: 'A step up. Same chaos, slightly more horsepower.' },
-            { id: 'late_model_stock', name: 'Late Model Stock Tour', short: 'Late Model', tier: 3, races: 22, pay: 1800, winBonus: 7000, reqRep: 160, reqFans: 15000, color: '#10B981', maxTerm: 1, maxTm: 2, fee: 1000, carCostNew: 18000, carCostUsed: 8000, desc: '500hp V8, real money, real sponsor pressure.' },
-            { id: 'arca_menards', name: 'ARCA Menards Series', short: 'ARCA', tier: 4, races: 20, pay: 12000, winBonus: 35000, reqRep: 220, reqFans: 40000, color: '#F59E0B', maxTerm: 2, maxTm: 2, fee: 4000, carCostNew: 0, carCostUsed: 0, desc: 'National TV. NASCAR scouts in the grandstands.' },
-            { id: 'nascar_trucks', name: 'NASCAR Craftsman Truck Series', short: 'Trucks', tier: 5, races: 23, pay: 25000, winBonus: 90000, reqRep: 300, reqFans: 75000, color: '#EF4444', maxTerm: 2, maxTm: 3, fee: 15000, carCostNew: 0, carCostUsed: 0, desc: "NASCAR proper. Don't blow it on a lapped car." },
-            { id: 'nascar_xfinity', name: 'NASCAR Xfinity Series', short: 'Xfinity', tier: 6, races: 33, pay: 75000, winBonus: 250000, reqRep: 420, reqFans: 130000, color: '#06B6D4', maxTerm: 3, maxTm: 3, fee: 35000, carCostNew: 0, carCostUsed: 0, desc: 'One rung from the Cup. Every lap is an audition.' },
-            { id: 'super_late_model', name: 'Super Late Model Tour', short: 'Super Late', tier: 2, races: 18, pay: 800, winBonus: 4000, reqRep: 110, reqFans: 8000, color: '#F97316', maxTerm: 1, maxTm: 2, fee: 400, carCostNew: 8000, carCostUsed: 3500, desc: 'Full-fendered asphalt rockets. Faster than street stock, a stepping stone to the big money.' },
-            { id: 'nascar_cup', name: 'NASCAR Cup Series', short: 'Cup Series', tier: 7, races: 36, pay: 200000, winBonus: 1000000, reqRep: 560, reqFans: 200000, color: '#EC4899', maxTerm: 3, maxTm: 3, fee: 80000, carCostNew: 0, carCostUsed: 0, desc: "The pinnacle. Don't fuck it up." },
+            { id: 'street_stock', name: 'Street Stock Series', short: 'Street Stock', tier: 2, races: 18, pay: 280, winBonus: 1200, reqRep: 120, reqFans: 5000, color: '#3B82F6', maxTerm: 1, maxTm: 1, fee: 250, carCostNew: 4000, carCostUsed: 1800, desc: 'A step up. Same chaos, slightly more horsepower.' },
+            { id: 'late_model_stock', name: 'Late Model Stock Tour', short: 'Late Model', tier: 3, races: 22, pay: 1800, winBonus: 7000, reqRep: 220, reqFans: 25000, color: '#10B981', maxTerm: 1, maxTm: 2, fee: 1000, carCostNew: 18000, carCostUsed: 8000, desc: '500hp V8, real money, real sponsor pressure.' },
+            { id: 'arca_menards', name: 'ARCA Menards Series', short: 'ARCA', tier: 4, races: 20, pay: 12000, winBonus: 35000, reqRep: 320, reqFans: 65000, color: '#F59E0B', maxTerm: 2, maxTm: 2, fee: 4000, carCostNew: 0, carCostUsed: 0, desc: 'National TV. NASCAR scouts in the grandstands.' },
+            { id: 'nascar_trucks', name: 'NASCAR Craftsman Truck Series', short: 'Trucks', tier: 5, races: 23, pay: 25000, winBonus: 90000, reqRep: 420, reqFans: 110000, color: '#EF4444', maxTerm: 2, maxTm: 3, fee: 15000, carCostNew: 0, carCostUsed: 0, desc: "NASCAR proper. Don't blow it on a lapped car." },
+            { id: 'nascar_xfinity', name: 'NASCAR Xfinity Series', short: 'Xfinity', tier: 6, races: 33, pay: 75000, winBonus: 250000, reqRep: 560, reqFans: 180000, color: '#06B6D4', maxTerm: 3, maxTm: 3, fee: 35000, carCostNew: 0, carCostUsed: 0, desc: 'One rung from the Cup. Every lap is an audition.' },
+            { id: 'super_late_model', name: 'Super Late Model Tour', short: 'Super Late', tier: 2, races: 18, pay: 800, winBonus: 4000, reqRep: 150, reqFans: 12000, color: '#F97316', maxTerm: 1, maxTm: 2, fee: 400, carCostNew: 8000, carCostUsed: 3500, desc: 'Full-fendered asphalt rockets. Faster than street stock, a stepping stone to the big money.' },
+            { id: 'nascar_cup', name: 'NASCAR Cup Series', short: 'Cup Series', tier: 7, races: 36, pay: 200000, winBonus: 1000000, reqRep: 700, reqFans: 250000, color: '#EC4899', maxTerm: 3, maxTm: 3, fee: 80000, carCostNew: 0, carCostUsed: 0, desc: "The pinnacle. Don't fuck it up." },
         ];
         function getSeries(id) { return SERIES.find(s => s.id === id); }
 
@@ -147,11 +222,11 @@
                 // Free road courses
                 { name: 'Summit Point Raceway', city: 'Summit Point', state: 'WV', night: false, roadCourse: true },
                 // Paid road courses
-                { name: 'Lime Rock Park', city: 'Lakeville', state: 'CT', night: false, roadCourse: true, paid: true, premierName: 'Lime Rock Grand Prix', premierLaps: 60 },
+                { name: 'Lime Rock Park', city: 'Lakeville', state: 'CT', night: false, roadCourse: true, paid: false, premierName: 'Lime Rock Grand Prix', premierLaps: 60 },
                 { name: 'Watkins Glen International', city: 'Watkins Glen', state: 'NY', night: false, roadCourse: true, paid: true, premierName: 'Watkins Glen Invitational', premierLaps: 75 },
                 { name: 'Road America', city: 'Elkhart Lake', state: 'WI', night: false, roadCourse: true, paid: true, premierName: 'Road America Classic', premierLaps: 50 },
                 { name: 'Mid-Ohio Sports Car Course', city: 'Lexington', state: 'OH', night: false, roadCourse: true, paid: true },
-                { name: 'Virginia International Raceway', city: 'Alton', state: 'VA', night: false, roadCourse: true, paid: true },
+                { name: 'Virginia International Raceway', city: 'Alton', state: 'VA', night: false, roadCourse: true, paid: false },
                 { name: 'Sebring International Raceway', city: 'Sebring', state: 'FL', night: false, roadCourse: true, paid: true, premierName: 'Sebring Legends 60', premierLaps: 60 },
                 // Free ovals — Legends-compatible
                 { name: 'South Boston Speedway', city: 'South Boston', state: 'VA', night: true, roadCourse: false, premierName: 'South Boston Legends 100', premierLaps: 100 },
@@ -226,8 +301,35 @@
             { name: 'Nashville Fairgrounds Speedway',  city: 'Nashville',       state: 'TN', night: true  },
             { name: 'The Milwaukee Mile',              city: 'West Allis',      state: 'WI', night: false },
         ],
-
-        // Tier 4-5: national intermediates — ARCA/Trucks use this pool (randomised)
+        // Tier 2-3: late model short tracks (mix of short tracks and small regulars)
+        latemodel: [
+            // Short tracks
+            { name: 'Langley Speedway', city: 'Hampton', state: 'VA', night: true },
+            { name: 'USA International Speedway', city: 'Lakeland', state: 'FL', night: false },
+            { name: 'Southern National Motorsports Park', city: 'Kenly', state: 'NC', night: true },
+            { name: 'South Boston Speedway', city: 'South Boston', state: 'VA', night: true },
+            { name: 'Concord Speedway', city: 'Concord', state: 'NC', night: true },
+            { name: 'Oxford Plains Speedway', city: 'Oxford', state: 'ME', night: false },
+            { name: 'Lanier National Speedway', city: 'Braselton', state: 'GA', night: true },
+            { name: 'Thompson Speedway Motorsports Park', city: 'Thompson', state: 'CT', night: false },
+            { name: 'Hickory Motor Speedway', city: 'Hickory', state: 'NC', night: true },
+            { name: 'New Smyrna Speedway', city: 'New Smyrna Beach', state: 'FL', night: false },
+            { name: 'Stafford Motor Speedway', city: 'Stafford Springs', state: 'CT', night: false },
+            { name: 'Irwindale Speedway', city: 'Irwindale', state: 'CA', night: true },
+            { name: 'Myrtle Beach Speedway', city: 'Myrtle Beach', state: 'SC', night: true },
+            { name: 'Slinger Speedway', city: 'Slinger', state: 'WI', night: true },
+            // Mixed in regionals
+            { name: 'Nashville Fairgrounds Speedway', city: 'Nashville', state: 'TN', night: true },
+            { name: 'Martinsville Speedway', city: 'Ridgeway', state: 'VA', night: false },
+            { name: 'North Wilkesboro Speedway', city: 'North Wilkesboro', state: 'NC', night: false },
+            { name: 'Richmond Raceway', city: 'Richmond', state: 'VA', night: true },
+            { name: 'Bristol Motor Speedway', city: 'Bristol', state: 'TN', night: true },
+            { name: 'Charlotte Motor Speedway', city: 'Concord', state: 'NC', night: false },
+            { name: 'Lime Rock Park', city: 'Lakeville', state: 'CT', night: false },
+            { name: 'Road America', city: 'Elkhart Lake', state: 'WI', night: false },
+            { name: 'Mid-Ohio Sports Car Course', city: 'Lexington', state: 'OH', night: false },
+            { name: 'The Milwaukee Mile', city: 'West Allis', state: 'WI', night: false },
+        ],
         national: [
             { name: 'Daytona International Speedway',  city: 'Daytona Beach',   state: 'FL', night: false },
             { name: 'Las Vegas Motor Speedway',        city: 'Las Vegas',       state: 'NV', night: true  },

@@ -999,10 +999,10 @@
             addLog(state, '🏁 ' + evt.name + ' @ ' + evt.track + ': ' + pos + ' | ' + fmtMoney(prizeEarned) + ' | +' + fmtFans(fansEarned) + ' fans | Rep ' + (repEarned >= 0 ? '+' : '') + repEarned);
 
             // Sponsor interest
-            if (!evt.fig8 && Math.random() < (evt.sponsorChance || 0.05) && state.reputation >= (evt.reqRep || 0)) {
-                const sp = makeSponsor(evtId, 'primary', true);
-                state.sponsorOffers.push(sp);
-                addLog(state, '📬 ' + sp.brand + ' noticed your run at ' + evt.name + '. They want to talk sponsorship.');
+if (!evt.fig8 && Math.random() < (evt.sponsorChance || 0.05) && state.reputation >= (evt.reqRep || 0)) {
+    const sp = makeSponsor(evtId, 'primary', true);
+    state.sponsorOffers.push(sp);
+    addLog(state, '📬 ' + sp.brand + ' noticed your run at ' + evt.name + '. They want to talk sponsorship.');
             }
 
             // Post-race drama — scaled by prestige and result

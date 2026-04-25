@@ -119,7 +119,7 @@
                 var _base = userFree || SERIES_TRACKS.local;
                 pool = mergePaidTracks(_base, userPaid);
             } else if (tier === 3) {
-                pool = mergePaidTracks(SERIES_TRACKS.regional, userPaid);
+                pool = mergePaidTracks(typeof SERIES_TRACKS.latemodel !== 'undefined' ? SERIES_TRACKS.latemodel : SERIES_TRACKS.regional, userPaid);
             } else if (tier === 4) {
                 // arca uses national pool
                 pool = userPaid || SERIES_TRACKS.national;
