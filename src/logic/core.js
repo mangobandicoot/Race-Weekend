@@ -179,10 +179,12 @@
 
                 // paid tracks get at least one slot each
                 var guaranteedPaid = [];
+                var _allKnownTracks = (SERIES_TRACKS.local || []).concat(SERIES_TRACKS.regional || []).concat(SERIES_TRACKS.latemodel || []);
                 if (userPaid && userPaid.length && tier <= 3) {
                     userPaid.forEach(function(pt) {
                         if (picks.length < mainCount) {
-                            picks.push(pt);
+                            var full = _allKnownTracks.find(function(k) { return k.name === pt.name; });
+                            picks.push(full || pt);
                             usedNames[pt.name] = 1;
                             guaranteedPaid.push(pt.name);
                         }

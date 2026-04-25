@@ -1157,9 +1157,16 @@
                                 events = evData.events;
                             }
                         }
+                        // Sidecar is stale or mismatched — fall back to what was stored at import
+                        if (!events && race._sdkFlags && race._sdkFlags.events && race._sdkFlags.events.length) {
+                            events = race._sdkFlags.events;
+                        }
                         hasEvents = true;
                         if (hasFlags) _doBuild(events, flags);
                     }).catch(function() {
+                        if (race._sdkFlags && race._sdkFlags.events && race._sdkFlags.events.length) {
+                            events = race._sdkFlags.events;
+                        }
                         hasEvents = true;
                         if (hasFlags) _doBuild(events, flags);
                     });
@@ -1168,7 +1175,9 @@
                     if (hasFlags) _doBuild(events, flags);
                 }
             } else {
-                _doBuild(null, null);
+                const storedEvents = (race._sdkFlags && race._sdkFlags.events && race._sdkFlags.events.length)
+                    ? race._sdkFlags.events : null;
+                _doBuild(storedEvents, race._sdkFlags || null);
             }
         }
 
@@ -1347,47 +1356,7 @@
                         )
                     );
                 })(),
-
-                // SDK flags summary — only shows when result was imported from bridge
-                sdkFlagsData ? h('div', {
-                    style: { background: '#060A10', border: '1px solid #1E2433', borderRadius: '8px', padding: '12px 14px', marginTop: '14px' }
-                },
-                    h('div', { style: { fontSize: '11px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, marginBottom: '8px' } }, '🚩 Race Flags — iRacing SDK'),
-                    h('div', { style: { display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: sdkFlagsData.black_flags && sdkFlagsData.black_flags.length ? '10px' : '0' } },
-                        h('div', null,
-                            h('div', { style: { fontSize: '11px', color: '#64748B' } }, 'CAUTIONS'),
-                            h('div', { style: { fontSize: '20px', fontWeight: 900, color: '#F59E0B' } }, String(sdkFlagsData.yellow_count || 0)),
-                        ),
-                        h('div', null,
-                            h('div', { style: { fontSize: '11px', color: '#64748B' } }, 'BLACK FLAGS'),
-                            h('div', { style: { fontSize: '20px', fontWeight: 900, color: '#EF4444' } }, String(sdkFlags.black_flag_count || 0)),
-                        ),
-                        sdkFlags.player_kerb_hits ? h('div', null,
-                            h('div', { style: { fontSize: '11px', color: '#64748B' } }, 'KERB HITS'),
-                            h('div', { style: { fontSize: '20px', fontWeight: 900, color: '#F97316' } }, String(sdkFlags.player_kerb_hits)),
-                        ) : null,
-                        sdkFlags.player_penalised ? h('div', null,
-                            h('div', { style: { fontSize: '11px', color: '#EF4444', fontWeight: 700 } }, '⚠️ YOU WERE PENALISED'),
-                        ) : null,
-                    ),
-                    sdkFlags.black_flags && sdkFlags.black_flags.length ? h('div', null,
-                        ...sdkFlags.black_flags.map(function(bf) {
-                            return h('div', { style: { fontSize: '12px', color: bf.is_player ? '#FCA5A5' : '#94A3B8', padding: '3px 0', borderTop: '1px solid #0D1117' } },
-                                h('span', { style: { color: '#EF4444', marginRight: '6px' } }, '🚩'),
-                                '#' + bf.car + ' ' + bf.driver + ' — ' + bf.reason + ' (' + bf.penalty_seconds + 's)',
-                            );
-                        })
-                    ) : null,
-                    sdkFlags.yellows && sdkFlags.yellows.length ? h('div', { style: { marginTop: '8px' } },
-                        ...sdkFlags.yellows.map(function(y) {
-                            return h('div', { style: { fontSize: '12px', color: '#94A3B8', padding: '2px 0' } },
-                                h('span', { style: { color: '#F59E0B', marginRight: '6px' } }, '🟡'),
-                                'Lap ' + y.lap + ' — ' + y.reason,
-                            );
-                        })
-                    ) : null,
-                ) : null,
-
+                
                 h('div', { className: 'modal-actions' },
                     mkBtn('✏️ Edit Result', 'btn btn-warn', () => openEditRaceResultModal(seriesId, raceIdx)),
                     mkBtn('Close', 'btn btn-ghost', closeModal),

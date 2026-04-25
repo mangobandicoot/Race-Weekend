@@ -266,6 +266,19 @@
             });
 
             // Reset seasonal stats
+            // Process drivers leaving their current team to join the player's owned team
+            if (state.ownedTeam) {
+                state.drivers.forEach(function(d) {
+                    if (d._leavingForTeam && d._leavingAfterSeason === state.season - 1) {
+                        var oldTeam = d.currentTeam;
+                        d.currentTeam = null; // they're now exclusively with the player's team
+                        d._leavingForTeam = null;
+                        d._leavingAfterSeason = null;
+                        addLog(state, '🚗 ' + d.name + ' has left ' + oldTeam + ' and is now full-time with ' + state.ownedTeam.name + '.');
+                    }
+                });
+            }
+
             state.drivers.forEach(d => { d.seasonPoints = 0; d.seasonWins = 0; d.injuredOrPenalized = false; d.substituteFor = null; });
             // Evolve AI-to-AI rivalries each season
             state.drivers.forEach(function (d) {

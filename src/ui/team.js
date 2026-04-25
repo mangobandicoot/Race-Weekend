@@ -194,21 +194,57 @@
                 var salRange = TEAM_SALARY_BY_TIER[tier2] || { min: 0, max: 0 };
                 dc.appendChild(h('div', { style: { marginTop: '12px' } },
                     mkBtn('+ Hire Driver', 'btn btn-sm btn-secondary', function() {
-                        // random driver from pool or generate one
                         var pool = (G.drivers || []).filter(function(d) {
                             return d.active && d.currentSeriesId === team.seriesId
                                 && !team.drivers.some(function(td) { return td && td.name === d.name; });
+  });
+                        while (pool.length < 6) {
+                            pool.push({ name: 'Prospect ' + (pool.length + 1), skill: rand(45, 72), _generated: true });
+                        }
+                        pool = pool.slice(0, 10);
+                        var rows = pool.map(function(d) {
+                            var projSal = salRange.min === 0 ? 0 : rand(salRange.min, salRange.max);
+                            var row = h('div', {
+                                style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', marginBottom: '6px', borderRadius: '8px', background: '#060A10', border: '1px solid #1E2433', cursor: 'pointer' },
+                                onClick: function() {
+                                    var td2 = makeTeamDriver(team.seriesId, d.name, d.skill || 55);
+                                    var freeCar = team.cars.find(function(c) { return !team.drivers.some(function(x) { return x && x.carId === c.id; }); });
+                                    if (freeCar) td2.carId = freeCar.id;
+                                    team.drivers.push(td2);
+                                    var srcDriver = !d._generated ? (G.drivers || []).find(function(gd) { return gd.name === d.name; }) : null;
+                                    if (srcDriver && srcDriver.currentTeam) {
+                                        // They're on a real named team — flag to leave at season end
+                                        srcDriver._leavingForTeam = team.name;
+                                        srcDriver._leavingAfterSeason = G.season;
+                                        addLog(G, '🤝 Signed ' + d.name + ' (' + srcDriver.currentTeam + ') for ' + team.name + ' — leaves current team at season end · ' + fmtMoney(td2.salary) + '/wk');
+                                    } else {
+                                        // Independent or lower-tier guy with no team — joins immediately, no drama
+                                        addLog(G, '🤝 Hired ' + d.name + ' for ' + team.name + ' — ' + fmtMoney(td2.salary) + '/wk');
+                                    }
+                                    saveGame(); closeModal(); render();
+                                }
+                            },
+                                h('div', null,
+                                    h('div', { style: { fontWeight: 700, fontSize: '14px', color: '#F9FAFB' } }, d.name + (d._generated ? ' 🆕' : '')),
+                                    h('div', { style: { fontSize: '12px', color: '#64748B', marginTop: '2px' } },
+                                        'Skill: ' + (d.skill || 55) +
+                                        ' · ' + (d._generated ? 'Prospect' : (getSeries(d.currentSeriesId) || {short: d.currentSeriesId || 'Unknown'}).short) +
+                                        ' · Est. salary: ' + (salRange.min === 0 ? 'Free' : '~' + fmtMoney(projSal) + '/wk')
+                                    )
+                                ),
+                                h('div', { style: { fontSize: '18px', fontWeight: 900, color: '#10B981' } }, '▶ Sign')
+                            );
+                            return row;
                         });
-                        var source = pool.length ? pool[rand(0, pool.length - 1)] : null;
-                        var name = source ? source.name : 'Hired Driver ' + (team.drivers.length + 1);
-                        var skill = source ? (source.skill || 55) : rand(45, 72);
-                        var td2 = makeTeamDriver(team.seriesId, name, skill);
-                        // give them a car
-                        var freeCar = team.cars.find(function(c) { return !team.drivers.some(function(d) { return d && d.carId === c.id; }); });
-                        if (freeCar) td2.carId = freeCar.id;
-                        team.drivers.push(td2);
-                        addLog(G, '🤝 Hired ' + name + ' for ' + team.name + ' — ' + fmtMoney(td2.salary) + '/wk');
-                        saveGame(); render();
+                        openModal(h('div', null,
+                            h('div', { className: 'modal-eyebrow' }, team.name),
+                            h('div', { className: 'modal-title' }, 'Hire a Driver'),
+                            h('div', { style: { fontSize: '14px', color: '#94A3B8', marginBottom: '16px' } },
+                                'Select a driver to sign. Drivers marked 🆕 are generated prospects not yet in the paddock.'
+                            ),
+                            h('div', null, ...rows),
+                            h('div', { className: 'modal-actions' }, mkBtn('Cancel', 'btn btn-ghost', closeModal))
+                        ));
                     })
                 ));
             }
@@ -282,6 +318,116 @@
                 sc2.appendChild(sRow);
             });
             f.appendChild(sc2);
+
+            // team sponsors
+            var spCard = h('div', { className: 'card', style: { marginBottom: '16px' } });
+            spCard.appendChild(cardTitle('Team Sponsors'));
+
+            if (!team.sponsorOffers || !team.sponsorOffers.length) {
+                team.sponsorOffers = [];
+                var TEAM_SPONSOR_TIERS = {
+                    1: { // Mini stock / open entry
+                        brands: ['Joe\'s Auto Parts', 'Hometown Tire', 'Miller\'s Hardware', 'County Line Diesel', 'Ace Auto Glass', 'Dave\'s Towing', 'Pioneer Seeds', 'Lakeside Marine'],
+                        min: 200, max: 600
+                    },
+                    2: { // Street stock / super late
+                        brands: ['AutoZone', 'Advance Auto', 'Moog Parts', 'Peak Antifreeze', 'WD-40', 'Mechanix Wear', 'Sunoco Race Fuels', 'Summit Racing'],
+                        min: 600, max: 1800
+                    },
+                    3: { // Late model / regional
+                        brands: ['Lucas Oil', 'Mobil 1', 'K&N Filters', 'Holley', 'MSD Ignition', 'Edelbrock', 'Trick Flow', 'Wilwood Brakes'],
+                        min: 1500, max: 5000
+                    },
+                    4: { // ARCA
+                        brands: ['Menards', 'Zaxby\'s', 'Pilot Flying J', 'Love\'s Travel Stops', 'NAPA Auto Parts', 'Chevrolet Accessories', 'Toyota Racing', 'Ford Performance'],
+                        min: 4000, max: 12000
+                    },
+                    5: { // Trucks
+                        brands: ['Bass Pro Shops', 'Camping World', 'Chevrolet Silverado', 'Ford F-150', 'Toyota Tundra', 'Safelite', 'NAPA Auto Parts', 'Niece Motorsports'],
+                        min: 8000, max: 22000
+                    },
+                    6: { // Xfinity
+                        brands: ['Busch Beer', 'Monster Energy', 'Reese\'s', 'M&Ms', 'Kraft', 'Sleep Number', 'Cheddar\'s Scratch Kitchen', 'Mahindra Tractors'],
+                        min: 18000, max: 50000
+                    },
+                    7: { // Cup
+                        brands: ['Hendrick Cars', 'Freightliner', 'Coca-Cola', 'Lowe\'s', 'FedEx', 'Valvoline', '5-hour Energy', 'Goodyear'],
+                        min: 50000, max: 150000
+                    },
+                };
+                var tier2 = s ? Math.min(s.tier, 7) : 1;
+                var tierData = TEAM_SPONSOR_TIERS[tier2] || TEAM_SPONSOR_TIERS[1];
+                var numOffers = 3 + rand(0, 2);
+                var usedBrands = [];
+                for (var oi = 0; oi < numOffers; oi++) {
+                    var brand;
+                    var attempts = 0;
+                    do {
+                        brand = tierData.brands[rand(0, tierData.brands.length - 1)];
+                        attempts++;
+                    } while (usedBrands.includes(brand) && attempts < 20);
+                    usedBrands.push(brand);
+                    var seasons = rand(1, 3);
+                    var value = Math.floor(tierData.min + Math.random() * (tierData.max - tierData.min));
+                    team.sponsorOffers.push({ id: uid(), brand: brand, valuePerSeason: value, seasonsLeft: seasons, winBonus: Math.floor(value * 0.1) });
+                }
+            }
+
+            if (team.sponsors && team.sponsors.length) {
+                spCard.appendChild(h('div', { style: { marginBottom: '10px' } },
+                    h('div', { style: { fontSize: '12px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' } }, 'Active'),
+                    ...team.sponsors.map(function(sp) {
+                        return h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1E2433' } },
+                            h('div', null,
+                                h('div', { style: { fontWeight: 700, fontSize: '14px', color: '#F9FAFB' } }, sp.brand),
+                                h('div', { style: { fontSize: '13px', color: '#94A3B8' } }, fmtMoney(sp.valuePerSeason) + '/season · ' + sp.seasonsLeft + ' season(s) left · Win bonus: ' + fmtMoney(sp.winBonus))
+                            ),
+                            h('span', { style: { fontSize: '11px', color: '#10B981', background: '#10B98122', border: '1px solid #10B98144', padding: '2px 7px', borderRadius: '4px', fontWeight: 700 } }, sp.seasonsLeft + (sp.seasonsLeft === 1 ? ' season' : ' seasons'))
+                        );
+                    })
+                ));
+            } else {
+                spCard.appendChild(h('div', { style: { fontSize: '14px', color: '#64748B', marginBottom: '10px' } }, 'No active team sponsors.'));
+            }
+
+            if (team.sponsorOffers && team.sponsorOffers.length) {
+                spCard.appendChild(h('div', { style: { fontSize: '12px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '10px' } }, 'Available Offers'));
+                team.sponsorOffers.forEach(function(sp) {
+                    var offerRow = h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #1E2433' } },
+                        h('div', { style: { flex: 1 } },
+                            h('div', { style: { fontWeight: 700, fontSize: '14px', color: '#F9FAFB' } }, sp.brand),
+                            h('div', { style: { fontSize: '13px', color: '#94A3B8', marginTop: '2px' } },
+                                fmtMoney(sp.valuePerSeason) + '/season · ' + sp.seasonsLeft + ' season(s) · Win bonus: +' + fmtMoney(sp.winBonus)
+                            )
+                        ),
+                        h('div', { style: { display: 'flex', gap: '6px' } },
+                            mkBtn('Decline', 'btn btn-xs btn-ghost', function() {
+                                team.sponsorOffers = team.sponsorOffers.filter(function(x) { return x.id !== sp.id; });
+                                saveGame(); render();
+                            }),
+                            mkBtn('Sign', 'btn btn-xs btn-success', function() {
+                                if (!team.sponsors) team.sponsors = [];
+                                team.sponsors.push(sp);
+                                team.sponsorOffers = team.sponsorOffers.filter(function(x) { return x.id !== sp.id; });
+                                addLog(G, '🤝 ' + team.name + ' signed ' + sp.brand + ' — ' + fmtMoney(sp.valuePerSeason) + '/season');
+                                saveGame(); render();
+                            })
+                        )
+                    );
+                    spCard.appendChild(offerRow);
+                });
+            } else {
+                spCard.appendChild(h('div', { style: { fontSize: '14px', color: '#64748B' } }, 'No sponsor offers available right now.'));
+            }
+
+            spCard.appendChild(h('div', { style: { marginTop: '10px' } },
+                mkBtn('🔄 Refresh Offers', 'btn btn-sm btn-secondary', function() {
+                    team.sponsorOffers = null;
+                    saveGame(); render();
+                })
+            ));
+
+            f.appendChild(spCard);
 
             return f;
         }

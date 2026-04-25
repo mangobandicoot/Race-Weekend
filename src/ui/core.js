@@ -237,34 +237,50 @@ let G = null;
                     if (G.drivers && typeof randomHomeState !== 'undefined') {
                         G.drivers.forEach(d => { if (!d.homeState) d.homeState = randomHomeState(); });
                     }
-                    // Migration: inform players of new series rep/fan thresholds (v1.2.0+)
-                    if (!G._thresholdNotified) {
-                        G._thresholdNotified = true;
-                        // Initialize dramaQueue if it doesn't exist
-                        if (!G.dramaQueue) G.dramaQueue = [];
-                        
-                        const currentSeriesId = G.contracts && G.contracts.length > 0 ? G.contracts[0].seriesId : null;
-                        const messages = [];
-                        
-                        // Map series ID to threshold message
-                        const thresholdMsgs = {
-                            'street_stock': 'Street Stock thresholds updated: Rep 120 (was 90), Fans 5k (was 3k)',
-                            'super_late_model': 'Super Late Model thresholds updated: Rep 150 (was 110), Fans 12k (was 8k)',
-                            'late_model_stock': 'Late Model Stock thresholds updated: Rep 220 (was 160), Fans 25k (was 15k)',
-                            'arca_menards': 'ARCA thresholds updated: Rep 320 (was 220), Fans 65k (was 40k)',
-                            'nascar_trucks': 'Trucks thresholds updated: Rep 420 (was 300), Fans 110k (was 75k)',
-                            'nascar_xfinity': 'Xfinity thresholds updated: Rep 560 (was 420), Fans 180k (was 130k)',
-                        };
-                        
-                        if (currentSeriesId && thresholdMsgs[currentSeriesId]) {
-                            const msgText = '📋 Series progression thresholds have been rebalanced:\n' + thresholdMsgs[currentSeriesId];
-                            // Don't call addLog yet since it may not be defined — just push to dramaQueue
+                    // Migration: detect rep/fan threshold changes on load and notify via paddock
+                    // _repSnapshot stores the last-seen reqRep/reqFans per series.
+                    // Any mismatch between snapshot and current SERIES data triggers a paddock notice.
+                    if (!G.dramaQueue) G.dramaQueue = [];
+                    if (!G._repSnapshot) G._repSnapshot = {};
+                    var _repChanges = [];
+                    SERIES.forEach(function(s) {
+                        if (s.isSideStep) return;
+                        var snap = G._repSnapshot[s.id];
+                        var curRep = s.reqRep || 0;
+                        var curFans = s.reqFans || 0;
+                        if (snap) {
+                            var repDiff = curRep - snap.reqRep;
+                            var fanDiff = curFans - snap.reqFans;
+                            if (repDiff !== 0 || fanDiff !== 0) {
+                                var parts = [];
+                                if (repDiff !== 0) parts.push('Rep ' + (repDiff > 0 ? '+' : '') + repDiff + ' (now ' + curRep + ')');
+                                if (fanDiff !== 0) parts.push('Fans ' + (fanDiff > 0 ? '+' : '') + fmtFans(fanDiff) + ' (now ' + fmtFans(curFans) + ')');
+                                _repChanges.push({ name: s.name, changes: parts.join(' · '), raised: repDiff > 0 || fanDiff > 0 });
+                            }
+                        }
+                        G._repSnapshot[s.id] = { reqRep: curRep, reqFans: curFans };
+                    });
+                    if (_repChanges.length) {
+                        var raised = _repChanges.filter(function(c) { return c.raised; });
+                        var lowered = _repChanges.filter(function(c) { return !c.raised; });
+                        if (raised.length) {
                             G.dramaQueue.push({
-                                title: '📋 Series Progression Rebalanced',
-                                desc: msgText,
-                                valence: 'neutral',
+                                id: 'rep_threshold_raised_' + Date.now(),
+                                title: '📋 Series Entry Requirements Raised',
+                                desc: 'Some series are now harder to enter:\n' + raised.map(function(c) { return '• ' + c.name + ': ' + c.changes; }).join('\n'),
+                                valence: 'bad',
+                                effect: 'info',
                                 _requiresAction: false,
-                                effect: 'info'
+                            });
+                        }
+                        if (lowered.length) {
+                            G.dramaQueue.push({
+                                id: 'rep_threshold_lowered_' + Date.now(),
+                                title: '📋 Series Entry Requirements Lowered',
+                                desc: 'Some series are now easier to enter:\n' + lowered.map(function(c) { return '• ' + c.name + ': ' + c.changes; }).join('\n'),
+                                valence: 'good',
+                                effect: 'info',
+                                _requiresAction: false,
                             });
                         }
                     }

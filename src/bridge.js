@@ -304,5 +304,22 @@ function renderSdkPanel() {
             style: { marginTop: '10px', background: '#060A10', borderRadius: '8px',
                      padding: '10px 14px', fontSize: '13px', color: '#10B981', border: '1px solid #10B98144' }
         }, '✅ Race finished — result ready to import from the Schedule page.') : null,
+
+        isConnected && isRacing ? h('div', { style: { marginTop: '10px' } },
+            mkBtn('⚠️ Force Import (Left Early)', 'btn btn-sm btn-warn', function() {
+                fetch(SDK_URL + '/result/flush', { method: 'POST' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data && data.ok) {
+                            showSummaryToast('🏁 Early exit captured — ' + (data.drivers || 0) + ' drivers, flags saved', '#F59E0B', 'Bridge');
+                            sdkPoll();
+                            setTimeout(render, 600);
+                        } else {
+                            alert('Flush failed: ' + (data && data.error ? data.error : 'unknown error'));
+                        }
+                    })
+                    .catch(function() { alert('Bridge not reachable at ' + SDK_URL); });
+            })
+        ) : null,
     );
 }

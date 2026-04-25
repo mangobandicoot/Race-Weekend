@@ -1262,6 +1262,45 @@ def tick():
             elif not connected and was_connected:
                 print("[Bridge] iRacing disconnected.")
                 state["connected"] = False
+                # If we were mid-race and never got a clean finish, flush what we have
+                if state.get("race") and not state.get("session_finished") and (state.get("session_type") or "").lower() == "race":
+                    print("[Bridge] Early exit detected — flushing partial result.")
+                    state["finish_order"] = get_finish_order()
+                    flags = {
+                        "yellows":             state["race"]["yellows"],
+                        "black_flags":         state["race"]["black_flags"],
+                        "pit_violations":      state["race"]["pit_violations"],
+                        "yellow_count":        len(state["race"]["yellows"]),
+                        "black_flag_count":    len(state["race"]["black_flags"]),
+                        "pit_violation_count": len(state["race"]["pit_violations"]),
+                        "player_kerb_hits":    state["race"]["player_kerb_hits"],
+                        "player_penalised":    any(bf["is_player"] for bf in state["race"]["black_flags"]),
+                    }
+                    _events = []
+                    for bf in state["race"]["black_flags"]:
+                        if bf.get("is_dnf"):
+                            _events.append({"lap": bf["lap"], "type": "dnf", "car": bf["car"], "driver": bf["driver"], "reason": bf["reason"]})
+                    for y in state["race"]["yellows"]:
+                        _events.append({"lap": y["lap"], "type": "yellow", "reason": y["reason"], "source": y.get("source", "bridge")})
+                    _events.sort(key=lambda e: (e["lap"], 0 if e["type"] == "dnf" else 1))
+                    state["last_result"] = {
+                        "track":        state["track"],
+                        "finish_order": state["finish_order"],
+                        "player_name":  state["player_name"],
+                        "field_size":   len(state["finish_order"]),
+                        "flags":        flags,
+                        "events":       _events,
+                        "timestamp":    time.time(),
+                        "early_exit":   True,
+                    }
+                    state["session_finished"] = True
+                    try:
+                        with open(_events_path, 'w', encoding='utf-8') as _ef:
+                            json.dump({"track": state["track"], "timestamp": state["last_result"]["timestamp"], "events": _events}, _ef)
+                        print(f"[Bridge] Early exit events written: {len(_events)} entries")
+                    except Exception as _ew:
+                        print(f"[Bridge] Could not write early exit events: {_ew}")
+                    print(f"[Bridge] Early exit flush: {len(state['finish_order'])} drivers, {flags['yellow_count']} cautions, {flags['black_flag_count']} black flags.")
 
             was_connected = connected
 

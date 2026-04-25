@@ -515,6 +515,7 @@ var nextNum = 1;
                                 h('div', { style: { flex: 1 } },
                                     h('div', { style: { fontSize: '13px', fontWeight: 700, color: '#F9FAFB' } }, d.name,
                                         isTm ? h('span', { style: { fontSize: '10px', color: '#3B82F6', marginLeft: '6px', fontWeight: 700 } }, 'TEAMMATE') : null,
+                                        (G.ownedTeam && G.ownedTeam.drivers && G.ownedTeam.drivers.some(function(td) { return td && td.name === d.name; })) ? h('span', { style: { fontSize: '10px', color: '#F59E0B', marginLeft: '6px', fontWeight: 700 } }, 'MY TEAM') : null,
                                     ),
                                     (function() {
                                         const _rs = getSeries(d.currentSeriesId);
@@ -612,6 +613,7 @@ var nextNum = 1;
                     section.appendChild(driverGrid);
                     drivers.forEach(function (d) {
                         const isKnown = d.source === 'known';
+                        const isOwnedTeamDriver = d.source === 'team' || (G.ownedTeam && G.ownedTeam.drivers && G.ownedTeam.drivers.some(function(td) { return td && td.name === d.name; }));
                         const rival = (G.rivals || []).find(function (r) { return r.name === d.name; });
                         const rel = rival ? relationship(rival) : null;
                         const relColor = rel ? REL_COLOR[rel] : null;
@@ -659,6 +661,7 @@ var nextNum = 1;
                                     d.name,
                                     isKnown ? h('span', { style: { fontSize: '10px', color: '#10B981', background: '#06513422', border: '1px solid #10B98144', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 } }, 'KNOWN') : null,
                                     isTm ? h('span', { style: { fontSize: '10px', color: '#3B82F6', background: '#1E3A5F22', border: '1px solid #3B82F644', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 } }, 'TEAMMATE') : null,
+                                    isOwnedTeamDriver ? h('span', { style: { fontSize: '10px', color: '#F59E0B', background: '#F59E0B22', border: '1px solid #F59E0B44', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 } }, 'MY TEAM') : null,
                                     isInjured ? h('span', { style: { fontSize: '10px', color: '#EF4444', background: '#7F1D1D22', border: '1px solid #EF444444', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 } }, 'INJ') : null,
                                     d.substituteFor ? h('span', { style: { fontSize: '10px', color: '#F97316', background: '#F9730622', border: '1px solid #F9730644', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 } }, 'SUB') : null,
                                     rel && rel !== 'acquaintance' ? h('span', { style: { fontSize: '10px', color: relColor, background: relColor + '22', border: '1px solid ' + relColor + '44', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 } }, REL_LABEL[rel]) : null,
