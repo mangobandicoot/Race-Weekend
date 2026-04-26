@@ -1178,6 +1178,7 @@ button:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
             { id: 'tire_specialist',name:'Tire Specialist',weeklyCost: 350, bonus: { handling: 3 } },
             { id: 'spotter',      name: 'Spotter',       weeklyCost: 200,  bonus: { awareness: 3 } },
             { id: 'pr_manager',   name: 'PR Manager',    weeklyCost: 400,  bonus: { fanGain: 10 } },
+            { id: 'biz_manager', name: 'Business Manager', weeklyCost: 800, bonus: { negotiation: 1 }, desc: 'Reveals sponsor floors during negotiation and improves counter success. Reduces driver salary demands by 5%.' },
         ];
 
         // Earliest week a player can buy into a team mid-season (as % of schedule)
@@ -7481,6 +7482,7 @@ var nextNum = 1;
                 td.points = (td.points || 0) + Math.max(1, 43 - pos);
                 if (pos === 1) td.wins = (td.wins || 0) + 1;
                 if (pos <= 5) td.top5s = (td.top5s || 0) + 1;
+                if (pos <= 10) td.top10s = (td.top10s || 0) + 1;
                 // Morale
                 if (pos <= 5) td.morale = Math.min(100, (td.morale || 70) + 5);
                 else if (pos > fieldSize * 0.75) td.morale = Math.max(10, (td.morale || 70) - 4);
@@ -9004,6 +9006,11 @@ if (!evt.fig8 && Math.random() < (evt.sponsorChance || 0.05) && state.reputation
             }
 
             state.drivers.forEach(d => { d.seasonPoints = 0; d.seasonWins = 0; d.injuredOrPenalized = false; d.substituteFor = null; });
+            if (state.ownedTeam) {
+                state.ownedTeam.drivers.forEach(function(td) {
+                    if (td) { td.points = 0; td.wins = 0; td.top5s = 0; td.top10s = 0; td.starts = 0; }
+                });
+            }
             // Evolve AI-to-AI rivalries each season
             state.drivers.forEach(function (d) {
                 if (!d.active) return;
@@ -9482,6 +9489,104 @@ if (!evt.fig8 && Math.random() < (evt.sponsorChance || 0.05) && state.reputation
                 if (sp.seasonsLeft <= 0) { addLog(state, `📋 ${sp.brand} sponsorship ended.`); return false; }
                 return true;
             });
+
+            // Tick team sponsor seasons and enforce performance clauses
+            if (state.ownedTeam && state.ownedTeam.sponsors) {
+                // Evaluate clauses before ticking
+                var teamWins = (state.ownedTeam.drivers || []).reduce(function(a, d) { return a + (d.wins || 0); }, 0);
+                var teamTop5s = (state.ownedTeam.drivers || []).reduce(function(a, d) { return a + (d.top5s || 0); }, 0);
+                var teamTop10s = (state.ownedTeam.drivers || []).reduce(function(a, d) { return a + (d.top10s || 0); }, 0);
+                var teamStarts = (state.ownedTeam.drivers || []).reduce(function(a, d) { return a + (d.starts || 0); }, 0);
+
+                state.ownedTeam.sponsors.forEach(function(sp) {
+                    if (!sp.clause) return;
+                    var achieved = false;
+                    switch (sp.clause.type) {
+                        case 'win':    achieved = teamWins >= sp.clause.req; break;
+                        case 'top5':   achieved = teamTop5s >= sp.clause.req; break;
+                        case 'top10':  achieved = teamTop10s >= sp.clause.req; break;
+                        case 'starts': achieved = teamStarts >= sp.clause.req; break;
+                        case 'champ_pos':
+                        case 'champ_pos_pct': {
+                            // Calculate team championship position in their series
+                            var teamSeriesDrivers = (state.drivers || []).filter(function(d) {
+                                return d.active && d.currentSeriesId === state.ownedTeam.seriesId;
+                            });
+                            var teamTotalPoints = (state.ownedTeam.drivers || []).reduce(function(a, d) { return a + (d.points || 0); }, 0);
+                            var teamsAhead = teamSeriesDrivers.filter(function(d) {
+                                return (d.seasonPoints || 0) > teamTotalPoints;
+                            }).length;
+                            var champPos = teamsAhead + 1;
+                            var fieldSize2 = teamSeriesDrivers.length + 1;
+                            if (sp.clause.type === 'champ_pos') {
+                                achieved = champPos <= sp.clause.req;
+                            } else {
+                                achieved = (champPos / fieldSize2) <= sp.clause.req;
+                            }
+                            addLog(state, '📊 ' + state.ownedTeam.name + ' championship position: P' + champPos + ' of ' + fieldSize2);
+                            break;
+                        }
+                    }
+                    if (achieved) {
+                        addLog(state, '✅ ' + sp.brand + ' clause met (' + sp.clause.label + ') — ' + state.ownedTeam.name + ' keeps full value.');
+                        sp.happiness = Math.min(100, (sp.happiness || 80) + 15);
+                    } else {
+                        var pen = sp.clause.penalty || 0;
+                        if (pen > 0) {
+                            state.money = Math.max(0, state.money - pen);
+                            state.ownedTeam.totalSpent = (state.ownedTeam.totalSpent || 0) + pen;
+                        }
+                        sp.happiness = Math.max(0, (sp.happiness || 80) - sp.clause.penaltyHappy);
+                        addLog(state, '❌ ' + sp.brand + ' clause missed (' + sp.clause.label + ')' + (pen > 0 ? ' — penalty: -' + fmtMoney(pen) : '') + ' · happiness -' + sp.clause.penaltyHappy + '%');
+                        state.dramaQueue.push({
+                            id: 'team_clause_fail_' + uid(),
+                            title: '📋 ' + sp.brand + ' Clause Not Met',
+                            desc: state.ownedTeam.name + ' failed the ' + sp.brand + ' performance clause (' + sp.clause.label + ').' + (pen > 0 ? ' Penalty: -' + fmtMoney(pen) + '.' : '') + ' Sponsor happiness dropped to ' + sp.happiness + '%. At 0% they won\'t renew.',
+                            valence: 'bad', effect: 'info',
+                        });
+                    }
+                });
+
+                // Tick seasons, pay out value, drop expired
+                state.ownedTeam.sponsors = state.ownedTeam.sponsors.map(function(sp) {
+                    return Object.assign({}, sp, { seasonsLeft: sp.seasonsLeft - 1 });
+                }).filter(function(sp) {
+                    if (sp.seasonsLeft <= 0) {
+                        // Pay out final season value
+                        state.money += sp.valuePerSeason;
+                        state.ownedTeam.totalRevenue = (state.ownedTeam.totalRevenue || 0) + sp.valuePerSeason;
+                        addLog(state, '📋 ' + sp.brand + ' team sponsorship ended — final payment: +' + fmtMoney(sp.valuePerSeason));
+                        if ((sp.happiness || 80) >= 60) {
+                            // Happy sponsor — push a renewal offer
+                            if (!state.ownedTeam.sponsorOffers) state.ownedTeam.sponsorOffers = [];
+                            state.ownedTeam.sponsorOffers.push({
+                                id: uid(), brand: sp.brand,
+                                valuePerSeason: Math.floor(sp.valuePerSeason * (1 + Math.random() * 0.15)),
+                                seasonsLeft: rand(1, 3),
+                                winBonus: sp.winBonus,
+                                clause: sp.clause,
+                                _theirFloor: Math.floor(sp.valuePerSeason * 0.8),
+                                _renewal: true,
+                            });
+                            addLog(state, '🔄 ' + sp.brand + ' is open to renewing with ' + state.ownedTeam.name + '.');
+                        }
+                        return false;
+                    }
+                    // Mid-contract — pay season value
+                    state.money += sp.valuePerSeason;
+                    state.ownedTeam.totalRevenue = (state.ownedTeam.totalRevenue || 0) + sp.valuePerSeason;
+                    return true;
+                });
+
+                // Clear blacklist from prior season
+                if (state.ownedTeam._blacklistedBrands) {
+                    Object.keys(state.ownedTeam._blacklistedBrands).forEach(function(brand) {
+                        if (state.ownedTeam._blacklistedBrands[brand] < state.season) {
+                            delete state.ownedTeam._blacklistedBrands[brand];
+                        }
+                    });
+                }
+            }
 
             // Tick multi-season contracts
             state.contracts.forEach(c => { c.seasonsCompleted++; c.racesCompleted = 0; c.earnings = 0; c.missedFinishWarnings = 0; });
@@ -12805,6 +12910,7 @@ let G = null;
         }
 
 // ═══ src/ui/team.js ═══
+
  // team ownership
         function renderTeam() {
             const f = document.createDocumentFragment();
@@ -13001,45 +13107,70 @@ let G = null;
                 var salRange = TEAM_SALARY_BY_TIER[tier2] || { min: 0, max: 0 };
                 dc.appendChild(h('div', { style: { marginTop: '12px' } },
                     mkBtn('+ Hire Driver', 'btn btn-sm btn-secondary', function() {
-                        var pool = (G.drivers || []).filter(function(d) {
+                        var teamTier = s ? s.tier : 1;
+                        var sameSeries = (G.drivers || []).filter(function(d) {
                             return d.active && d.currentSeriesId === team.seriesId
                                 && !team.drivers.some(function(td) { return td && td.name === d.name; });
-  });
+                        });
+                        var lowerTier = (G.drivers || []).filter(function(d) {
+                            if (!d.active) return false;
+                            if (d.currentSeriesId === team.seriesId) return false;
+                            if (team.drivers.some(function(td) { return td && td.name === d.name; })) return false;
+                            var dSeries = getSeries(d.currentSeriesId);
+                            if (!dSeries) return false;
+                            return dSeries.tier < teamTier;
+                        });
+                        lowerTier.sort(function(a, b) { return (b.skill || 0) - (a.skill || 0); });
+                        // Always show up to 4 lower-tier drivers even if same-series pool is large
+                        var pool = sameSeries.slice(0, 8).concat(lowerTier.slice(0, 4));
                         while (pool.length < 6) {
-                            pool.push({ name: 'Prospect ' + (pool.length + 1), skill: rand(45, 72), _generated: true });
+                            pool.push({ name: 'Prospect ' + (pool.length + 1), skill: rand(40, 65), _generated: true });
                         }
-                        pool = pool.slice(0, 10);
+                        pool = pool.slice(0, 12);
                         var rows = pool.map(function(d) {
                             var projSal = salRange.min === 0 ? 0 : rand(salRange.min, salRange.max);
                             var row = h('div', {
                                 style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', marginBottom: '6px', borderRadius: '8px', background: '#060A10', border: '1px solid #1E2433', cursor: 'pointer' },
                                 onClick: function() {
-                                    var td2 = makeTeamDriver(team.seriesId, d.name, d.skill || 55);
-                                    var freeCar = team.cars.find(function(c) { return !team.drivers.some(function(x) { return x && x.carId === c.id; }); });
-                                    if (freeCar) td2.carId = freeCar.id;
-                                    team.drivers.push(td2);
-                                    var srcDriver = !d._generated ? (G.drivers || []).find(function(gd) { return gd.name === d.name; }) : null;
-                                    if (srcDriver && srcDriver.currentTeam) {
-                                        // They're on a real named team — flag to leave at season end
-                                        srcDriver._leavingForTeam = team.name;
-                                        srcDriver._leavingAfterSeason = G.season;
-                                        addLog(G, '🤝 Signed ' + d.name + ' (' + srcDriver.currentTeam + ') for ' + team.name + ' — leaves current team at season end · ' + fmtMoney(td2.salary) + '/wk');
+                                    if (d._generated) {
+                                        finalizeDriverSigning(team, d, salRange.min === 0 ? 0 : rand(salRange.min, salRange.max), 1, 0);
                                     } else {
-                                        // Independent or lower-tier guy with no team — joins immediately, no drama
-                                        addLog(G, '🤝 Hired ' + d.name + ' for ' + team.name + ' — ' + fmtMoney(td2.salary) + '/wk');
+                                        closeModal();
+                                        openDriverNegotiationModal(team, d, salRange);
                                     }
-                                    saveGame(); closeModal(); render();
                                 }
                             },
                                 h('div', null,
-                                    h('div', { style: { fontWeight: 700, fontSize: '14px', color: '#F9FAFB' } }, d.name + (d._generated ? ' 🆕' : '')),
+                                    h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' } },
+                                        h('span', { style: { fontWeight: 700, fontSize: '14px', color: '#F9FAFB' } }, d.name + (d._generated ? ' 🆕' : '')),
+                                        (function() {
+                                            if (d._generated) return null;
+                                            var rival = (G.rivals || []).find(function(r) { return r.name === d.name; });
+                                            var isTm = (G.teammates || []).some(function(t) { return t.name === d.name; });
+                                            if (rival) {
+                                                var rel = relationship(rival);
+                                                var isEnemy = rel === 'enemy' || rel === 'rival';
+                                                return h('span', { style: { fontSize: '10px', color: isEnemy ? '#EF4444' : '#10B981', background: isEnemy ? '#EF444422' : '#10B98122', border: '1px solid ' + (isEnemy ? '#EF444444' : '#10B98144'), padding: '1px 5px', borderRadius: '3px', fontWeight: 700 } },
+                                                    isEnemy ? '⚔ RIVAL' : '🤝 ALLY');
+                                            }
+                                            if (isTm) return h('span', { style: { fontSize: '10px', color: '#3B82F6', background: '#3B82F622', border: '1px solid #3B82F644', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 } }, 'TEAMMATE');
+                                            return null;
+                                        })()
+                                    ),
                                     h('div', { style: { fontSize: '12px', color: '#64748B', marginTop: '2px' } },
                                         'Skill: ' + (d.skill || 55) +
                                         ' · ' + (d._generated ? 'Prospect' : (getSeries(d.currentSeriesId) || {short: d.currentSeriesId || 'Unknown'}).short) +
-                                        ' · Est. salary: ' + (salRange.min === 0 ? 'Free' : '~' + fmtMoney(projSal) + '/wk')
+                                        ' · Est. salary: ' + (salRange.min === 0 ? 'Free' : '~' + fmtMoney(projSal) + '/wk') +
+                                        (d._generated ? '' : (function() {
+                                            var rival = (G.rivals || []).find(function(r) { return r.name === d.name; });
+                                            if (!rival) return '';
+                                            var rel = relationship(rival);
+                                            var isEnemy = rel === 'enemy' || rel === 'rival';
+                                            return isEnemy ? ' · asks more, less likely to sign' : ' · asks less, more likely to sign';
+                                        })())
                                     )
                                 ),
-                                h('div', { style: { fontSize: '18px', fontWeight: 900, color: '#10B981' } }, '▶ Sign')
+                                h('div', { style: { fontSize: '14px', fontWeight: 700, color: d._generated ? '#10B981' : '#3B82F6' } }, d._generated ? '▶ Sign' : '▶ Negotiate')
                             );
                             return row;
                         });
@@ -13130,6 +13261,10 @@ let G = null;
             var spCard = h('div', { className: 'card', style: { marginBottom: '16px' } });
             spCard.appendChild(cardTitle('Team Sponsors'));
 
+            var SPONSOR_SLOT_CAP = [0, 2, 2, 3, 3, 4, 4, 5];
+            var sponsorCap = SPONSOR_SLOT_CAP[Math.min(s ? s.tier : 1, 7)];
+            var activeSponsorCount = (team.sponsors || []).length;
+
             if (!team.sponsorOffers || !team.sponsorOffers.length) {
                 team.sponsorOffers = [];
                 var TEAM_SPONSOR_TIERS = {
@@ -13176,7 +13311,53 @@ let G = null;
                     usedBrands.push(brand);
                     var seasons = rand(1, 3);
                     var value = Math.floor(tierData.min + Math.random() * (tierData.max - tierData.min));
-                    team.sponsorOffers.push({ id: uid(), brand: brand, valuePerSeason: value, seasonsLeft: seasons, winBonus: Math.floor(value * 0.1) });
+                    // Performance clause — 60% chance, scaled to tier
+                    var clause = null;
+                    if (Math.random() < 0.6) {
+                        var totalRaces = s ? s.races : 10;
+                        var clauseTypes = tier2 <= 2
+                            ? [
+                                { label: 'Complete 80% of races', type: 'starts', req: Math.floor(totalRaces * 0.8), penalty: 0, penaltyHappy: -20 },
+                                { label: 'Score a top-10 finish', type: 'top10', req: 1, penalty: 0, penaltyHappy: -15 },
+                                { label: 'Score 3 top-10 finishes', type: 'top10', req: 3, penalty: 0, penaltyHappy: -20 },
+                                { label: 'Finish top half of championship', type: 'champ_pos_pct', req: 0.5, penalty: 0, penaltyHappy: -15 },
+                            ]
+                            : tier2 <= 3
+                            ? [
+                                { label: 'Complete 80% of races', type: 'starts', req: Math.floor(totalRaces * 0.8), penalty: 0, penaltyHappy: -15 },
+                                { label: 'Score a top-10 finish', type: 'top10', req: 1, penalty: Math.floor(value * 0.1), penaltyHappy: -15 },
+                                { label: 'Score 3 top-10 finishes', type: 'top10', req: 3, penalty: Math.floor(value * 0.12), penaltyHappy: -18 },
+                                { label: 'Score a top-5 finish', type: 'top5', req: 1, penalty: Math.floor(value * 0.15), penaltyHappy: -20 },
+                                { label: 'Finish top 8 in championship', type: 'champ_pos', req: 8, penalty: Math.floor(value * 0.1), penaltyHappy: -15 },
+                                { label: 'Finish top 5 in championship', type: 'champ_pos', req: 5, penalty: Math.floor(value * 0.15), penaltyHappy: -20 },
+                            ]
+                            : tier2 <= 5
+                            ? [
+                                { label: 'Score a top-10 finish', type: 'top10', req: 1, penalty: Math.floor(value * 0.12), penaltyHappy: -15 },
+                                { label: 'Score 3 top-10 finishes', type: 'top10', req: 3, penalty: Math.floor(value * 0.15), penaltyHappy: -18 },
+                                { label: 'Score a top-5 finish', type: 'top5', req: 1, penalty: Math.floor(value * 0.18), penaltyHappy: -22 },
+                                { label: 'Score 2 top-5 finishes', type: 'top5', req: 2, penalty: Math.floor(value * 0.22), penaltyHappy: -28 },
+                                { label: 'Win a race', type: 'win', req: 1, penalty: Math.floor(value * 0.25), penaltyHappy: -30 },
+                                { label: 'Finish top 5 in championship', type: 'champ_pos', req: 5, penalty: Math.floor(value * 0.2), penaltyHappy: -25 },
+                                { label: 'Finish top 3 in championship', type: 'champ_pos', req: 3, penalty: Math.floor(value * 0.25), penaltyHappy: -30 },
+                            ]
+                            : [
+                                { label: 'Score a top-5 finish', type: 'top5', req: 1, penalty: Math.floor(value * 0.2), penaltyHappy: -25 },
+                                { label: 'Score 3 top-5 finishes', type: 'top5', req: 3, penalty: Math.floor(value * 0.25), penaltyHappy: -30 },
+                                { label: 'Win a race', type: 'win', req: 1, penalty: Math.floor(value * 0.28), penaltyHappy: -32 },
+                                { label: 'Win 2 races', type: 'win', req: 2, penalty: Math.floor(value * 0.35), penaltyHappy: -40 },
+                                { label: 'Finish top 3 in championship', type: 'champ_pos', req: 3, penalty: Math.floor(value * 0.3), penaltyHappy: -35 },
+                                { label: 'Finish top 10 in championship', type: 'champ_pos', req: 10, penalty: Math.floor(value * 0.2), penaltyHappy: -25 },
+                                { label: 'Contend for championship (top 5)', type: 'champ_pos', req: 5, penalty: Math.floor(value * 0.25), penaltyHappy: -30 },
+                            ];
+                        clause = clauseTypes[rand(0, clauseTypes.length - 1)];
+                    }
+                    team.sponsorOffers.push({
+                        id: uid(), brand: brand, valuePerSeason: value, seasonsLeft: seasons,
+                        winBonus: Math.floor(value * 0.1),
+                        clause: clause,
+                        _theirFloor: Math.floor(value * 0.75),
+                    });
                 }
             }
 
@@ -13200,25 +13381,39 @@ let G = null;
             if (team.sponsorOffers && team.sponsorOffers.length) {
                 spCard.appendChild(h('div', { style: { fontSize: '12px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', marginTop: '10px' } }, 'Available Offers'));
                 team.sponsorOffers.forEach(function(sp) {
+                    var clauseLabel = sp.clause ? ('⚑ ' + sp.clause.label) : 'No performance clause';
+                    var clauseColor = sp.clause ? '#F59E0B' : '#475569';
                     var offerRow = h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #1E2433' } },
                         h('div', { style: { flex: 1 } },
                             h('div', { style: { fontWeight: 700, fontSize: '14px', color: '#F9FAFB' } }, sp.brand),
                             h('div', { style: { fontSize: '13px', color: '#94A3B8', marginTop: '2px' } },
                                 fmtMoney(sp.valuePerSeason) + '/season · ' + sp.seasonsLeft + ' season(s) · Win bonus: +' + fmtMoney(sp.winBonus)
-                            )
+                            ),
+                            h('div', { style: { fontSize: '12px', color: clauseColor, marginTop: '2px' } }, clauseLabel)
                         ),
                         h('div', { style: { display: 'flex', gap: '6px' } },
-                            mkBtn('Decline', 'btn btn-xs btn-ghost', function() {
+                            mkBtn('Pass', 'btn btn-xs btn-ghost', function() {
                                 team.sponsorOffers = team.sponsorOffers.filter(function(x) { return x.id !== sp.id; });
+                                // Brand blacklisted for season if you pass after they already countered
+                                if (sp._countered) {
+                                    if (!team._blacklistedBrands) team._blacklistedBrands = {};
+                                    team._blacklistedBrands[sp.brand] = G.season;
+                                    addLog(G, '❌ ' + sp.brand + ' walked away from ' + team.name + ' — blacklisted for this season.');
+                                    // They may sign with another team — paddock drama
+                                    G.dramaQueue.push({
+                                        id: 'sponsor_rival_' + uid(),
+                                        title: '📰 ' + sp.brand + ' Signs Elsewhere',
+                                        desc: sp.brand + ' ended talks with ' + team.name + ' and signed with a competing outfit. They wanted ' + fmtMoney(sp._theirFloor || sp.valuePerSeason) + '/season. Word travels fast in the paddock.',
+                                        valence: 'bad', effect: 'info',
+                                    });
+                                }
                                 saveGame(); render();
                             }),
-                            mkBtn('Sign', 'btn btn-xs btn-success', function() {
-                                if (!team.sponsors) team.sponsors = [];
-                                team.sponsors.push(sp);
-                                team.sponsorOffers = team.sponsorOffers.filter(function(x) { return x.id !== sp.id; });
-                                addLog(G, '🤝 ' + team.name + ' signed ' + sp.brand + ' — ' + fmtMoney(sp.valuePerSeason) + '/season');
-                                saveGame(); render();
+                            activeSponsorCount < sponsorCap
+                            ? mkBtn('Negotiate', 'btn btn-xs btn-secondary', function() {
+                                openTeamSponsorNegotiationModal(team, sp, sponsorCap, activeSponsorCount);
                             })
+                            : h('span', { style: { fontSize: '11px', color: '#64748B', padding: '2px 8px' } }, 'Full')
                         )
                     );
                     spCard.appendChild(offerRow);
@@ -13227,18 +13422,270 @@ let G = null;
                 spCard.appendChild(h('div', { style: { fontSize: '14px', color: '#64748B' } }, 'No sponsor offers available right now.'));
             }
 
-            spCard.appendChild(h('div', { style: { marginTop: '10px' } },
-                mkBtn('🔄 Refresh Offers', 'btn btn-sm btn-secondary', function() {
-                    team.sponsorOffers = null;
-                    saveGame(); render();
-                })
+            spCard.appendChild(h('div', { style: { marginTop: '10px', display: 'flex', alignItems: 'center', gap: '12px' } },
+                activeSponsorCount < sponsorCap
+                    ? mkBtn('🔄 Refresh Offers', 'btn btn-sm btn-secondary', function() {
+                        team.sponsorOffers = null;
+                        saveGame(); render();
+                    })
+                    : h('div', { style: { fontSize: '13px', color: '#64748B', fontStyle: 'italic' } }, 'Sponsor slots full — drop one to open negotiations.'),
+                h('div', { style: { fontSize: '12px', color: '#64748B' } }, activeSponsorCount + ' / ' + sponsorCap + ' slots filled')
             ));
 
             f.appendChild(spCard);
 
             return f;
         }
+           function openTeamSponsorNegotiationModal(team, sp, sponsorCap, activeSponsorCount) {
+            var hasBizMgr = (team.staff || []).some(function(st) { return st && st.roleId === 'biz_manager'; });
+            var counterTolerance = sp._countered ? 0 : (hasBizMgr ? 2 : 1);
+            var theirFloor = sp._theirFloor || Math.floor(sp.valuePerSeason * 0.75);
+            sp._theirFloor = theirFloor;
+            var playerInput = { value: sp.valuePerSeason, seasons: sp.seasonsLeft };
 
+            function buildModal(yourVal, yourSeasons, message, messageColor) {
+                var clauseDesc = sp.clause
+                    ? ('Performance clause: ' + sp.clause.label + '. ' + (sp.clause.penalty > 0 ? 'Fail: -' + fmtMoney(sp.clause.penalty) + '/season.' : 'Fail: -' + sp.clause.penaltyHappy + '% happiness.'))
+                    : 'No performance clause attached.';
+                var revealFloor = hasBizMgr
+                    ? h('div', { style: { fontSize: '12px', color: '#10B981', marginTop: '4px' } }, '📊 Business Manager insight: their floor is ~' + fmtMoney(theirFloor) + '/season')
+                    : null;
+                var valInput = h('input', { type: 'range', min: Math.floor(sp.valuePerSeason * 0.6), max: Math.floor(sp.valuePerSeason * 1.3), step: 100, value: yourVal, style: { width: '100%' } });
+                var valDisplay = h('div', { style: { fontSize: '18px', fontWeight: 900, color: '#10B981', textAlign: 'center', margin: '6px 0' } }, fmtMoney(yourVal) + '/season');
+                valInput.addEventListener('input', function() {
+                    valDisplay.textContent = fmtMoney(parseInt(valInput.value)) + '/season';
+                    playerInput.value = parseInt(valInput.value);
+                });
+                var seasonsSelect = h('select', { style: { background: '#060A10', border: '1px solid #1E2433', color: '#F9FAFB', borderRadius: '6px', padding: '6px 10px', fontSize: '14px', marginTop: '6px' } });
+                [1, 2, 3].forEach(function(y) {
+                    var opt = h('option', { value: y }, y + (y === 1 ? ' season' : ' seasons'));
+                    if (y === yourSeasons) opt.selected = true;
+                    seasonsSelect.appendChild(opt);
+                });
+                seasonsSelect.addEventListener('change', function() { playerInput.seasons = parseInt(seasonsSelect.value); });
+                return h('div', null,
+                    h('div', { className: 'modal-eyebrow' }, team.name + ' · Sponsor Negotiation'),
+                    h('div', { className: 'modal-title' }, sp.brand),
+                    h('div', { style: { fontSize: '13px', color: '#94A3B8', marginBottom: '4px' } },
+                        'Their ask: ' + fmtMoney(sp.valuePerSeason) + '/season · ' + sp.seasonsLeft + ' season(s) · Win bonus: +' + fmtMoney(sp.winBonus)
+                    ),
+                    h('div', { style: { fontSize: '12px', color: '#F59E0B', marginBottom: '12px' } }, clauseDesc),
+                    revealFloor,
+                    message ? h('div', { style: { fontSize: '13px', color: messageColor || '#94A3B8', background: '#0B0F1A', border: '1px solid #1E2433', borderRadius: '6px', padding: '8px 12px', margin: '10px 0' } }, message) : null,
+                    h('div', { style: { marginBottom: '12px' } },
+                        h('div', { style: { fontSize: '12px', color: '#64748B', marginBottom: '4px', textTransform: 'uppercase' } }, 'Your offer — value/season'),
+                        valInput, valDisplay,
+                        h('div', { style: { fontSize: '12px', color: '#64748B', marginBottom: '4px', textTransform: 'uppercase', marginTop: '10px' } }, 'Contract length'),
+                        seasonsSelect
+                    ),
+                    h('div', { className: 'modal-actions' },
+                        mkBtn('Walk Away', 'btn btn-ghost', function() {
+                            team.sponsorOffers = team.sponsorOffers.filter(function(x) { return x.id !== sp.id; });
+                            closeModal(); saveGame(); render();
+                        }),
+                        mkBtn('Accept Their Terms', 'btn btn-secondary', function() {
+                            finalizeTeamSponsor(team, sp, sp.valuePerSeason, sp.seasonsLeft);
+                        }),
+                        mkBtn('Submit Counter', 'btn btn-primary', function() {
+                            var offerVal = playerInput.value;
+                            var offerSeasons = playerInput.seasons;
+                            if (offerVal < theirFloor) {
+                                if (!team._blacklistedBrands) team._blacklistedBrands = {};
+                                team._blacklistedBrands[sp.brand] = G.season;
+                                team.sponsorOffers = team.sponsorOffers.filter(function(x) { return x.id !== sp.id; });
+                                G.dramaQueue.push({
+                                    id: 'sponsor_lowball_' + uid(),
+                                    title: '💸 ' + sp.brand + ' Ended Talks',
+                                    desc: sp.brand + ' walked away from negotiations with ' + team.name + ' after an offer they considered insulting. They\'ve signed elsewhere and won\'t be back this season. Word is getting around.',
+                                    valence: 'bad', effect: 'info',
+                                });
+                                if (team.sponsorOffers) {
+                                    team.sponsorOffers.forEach(function(o) { o.valuePerSeason = Math.floor(o.valuePerSeason * 1.05); o._theirFloor = Math.floor((o._theirFloor || o.valuePerSeason * 0.75) * 1.05); });
+                                }
+                                closeModal(); saveGame(); render();
+                                return;
+                            }
+                            if (offerVal >= sp.valuePerSeason || counterTolerance <= 0) {
+                                finalizeTeamSponsor(team, sp, offerVal, offerSeasons);
+                                return;
+                            }
+                            var midpoint = Math.floor((offerVal + sp.valuePerSeason) / 2);
+                            sp.valuePerSeason = midpoint;
+                            sp._countered = true;
+                            sp._theirFloor = theirFloor;
+                            openModal(buildModal(offerVal, offerSeasons, sp.brand + ' countered: ' + fmtMoney(midpoint) + '/season. They won\'t budge further.', '#F59E0B'));
+                        })
+                    )
+                );
+            }
+            openModal(buildModal(sp.valuePerSeason, sp.seasonsLeft, null, null));
+        }
+
+        function finalizeTeamSponsor(team, sp, value, seasons) {
+            if (!team.sponsors) team.sponsors = [];
+            sp.valuePerSeason = value;
+            sp.seasonsLeft = seasons;
+            sp._teamSponsor = true;
+            G.money += value;
+            team.totalRevenue = (team.totalRevenue || 0) + value;
+            team.sponsorOffers = team.sponsorOffers.filter(function(x) { return x.id !== sp.id; });
+            team.sponsors.push(sp);
+            addLog(G, '🤝 ' + team.name + ' signed ' + sp.brand + ' — ' + fmtMoney(value) + '/season · ' + seasons + ' season(s)' + (sp.clause ? ' · Clause: ' + sp.clause.label : '') + '. Advance: +' + fmtMoney(value));
+            closeModal(); saveGame(); render();
+        }
+
+        function openDriverNegotiationModal(team, d, salRange, _message, _messageColor) {
+            var hasBizMgr = (team.staff || []).some(function(st) { return st && st.roleId === 'biz_manager'; });
+            var maxCounters = hasBizMgr ? 3 : 2;
+            var rival = (G.rivals || []).find(function(r) { return r.name === d.name; });
+            var rel = rival ? relationship(rival) : 'acquaintance';
+            var isTm = (G.teammates || []).some(function(t) { return t.name === d.name; });
+            var relMod = { rival: 1.22, frenemy: 1.0 + (Math.random() * 0.3 - 0.1), racing_rival: 0.92, friend: 0.87, acquaintance: 1.0 }[rel] || 1.0;
+            var tolerance = { rival: 0.82, frenemy: 0.85, racing_rival: 0.90, friend: 0.95, acquaintance: 0.88 }[rel] || 0.88;
+            if (isTm) { relMod = Math.min(relMod, 0.85); tolerance = 0.97; }
+            if (!d._negotiation) {
+                var inflation = G._driverSalaryInflation || 1.0;
+                var baseAsk = salRange.min === 0 ? 0 : Math.floor(salRange.min + Math.random() * (salRange.max - salRange.min));
+                baseAsk = Math.floor(baseAsk * relMod * inflation);
+                var floor = Math.floor(baseAsk * tolerance);
+                d._negotiation = { theirAsk: baseAsk, theirFloor: floor, preferredSeasons: rand(1, 2), countersUsed: 0, bonusOffered: 0 };
+            }
+            var neg = d._negotiation;
+            var playerOffer = { salary: neg.theirAsk, seasons: neg.preferredSeasons, bonus: 0 };
+
+            function relBadge() {
+                if (isTm) return h('span', { style: { fontSize: '11px', color: '#3B82F6', background: '#3B82F622', border: '1px solid #3B82F644', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 } }, 'TEAMMATE');
+                if (!rival) return null;
+                var color = REL_COLOR[rel] || '#94A3B8';
+                return h('span', { style: { fontSize: '11px', color: color, background: color + '22', border: '1px solid ' + color + '44', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 } }, REL_LABEL[rel] || rel.toUpperCase());
+            }
+
+            function relNote() {
+                if (!rival && !isTm) return null;
+                if (isTm) return '🤝 Former teammate — they\'re comfortable signing with you and asking less.';
+                return { rival: '⚠️ As a rival, they\'re asking for more and won\'t budge much. Expect tough negotiations.', frenemy: '🎲 Your history is complicated — their mood today is anyone\'s guess.', racing_rival: '🏁 Mutual respect on track. They\'re reasonable to deal with.', friend: '👍 Good relationship — they\'re willing to work with you on terms.' }[rel] || null;
+            }
+
+            function buildModal(message, messageColor) {
+                message = message || _message || null;
+                messageColor = messageColor || _messageColor || null;
+                var salMin = Math.floor(neg.theirFloor * 0.75);
+                var salMax = Math.floor(neg.theirAsk * 1.2);
+                var salInput = h('input', { type: 'range', min: salMin, max: salMax, step: 50, value: playerOffer.salary, style: { width: '100%' } });
+                var salDisplay = h('div', { style: { fontSize: '18px', fontWeight: 900, color: '#10B981', textAlign: 'center', margin: '6px 0' } }, fmtMoney(playerOffer.salary) + '/wk');
+                salInput.addEventListener('input', function() { playerOffer.salary = parseInt(salInput.value); salDisplay.textContent = fmtMoney(playerOffer.salary) + '/wk'; updateAcceptChance(); });
+                var seasonsSelect = h('select', { style: { background: '#060A10', border: '1px solid #1E2433', color: '#F9FAFB', borderRadius: '6px', padding: '6px 10px', fontSize: '14px' } });
+                [1, 2, 3].forEach(function(y) { var opt = h('option', { value: y }, y + (y === 1 ? ' season' : ' seasons')); if (y === playerOffer.seasons) opt.selected = true; seasonsSelect.appendChild(opt); });
+                seasonsSelect.addEventListener('change', function() { playerOffer.seasons = parseInt(seasonsSelect.value); updateAcceptChance(); });
+                var bonusInput = h('input', { type: 'range', min: 0, max: Math.floor(neg.theirAsk * 8), step: 100, value: playerOffer.bonus, style: { width: '100%' } });
+                var bonusDisplay = h('div', { style: { fontSize: '14px', color: '#F59E0B', textAlign: 'center', margin: '4px 0' } }, 'No signing bonus');
+                bonusInput.addEventListener('input', function() { playerOffer.bonus = parseInt(bonusInput.value); bonusDisplay.textContent = playerOffer.bonus > 0 ? '+' + fmtMoney(playerOffer.bonus) + ' signing bonus' : 'No signing bonus'; updateAcceptChance(); });
+                var chanceBar = h('div', { style: { height: '6px', borderRadius: '3px', background: '#1E2433', marginTop: '8px', overflow: 'hidden' } });
+                var chanceFill = h('div', { style: { height: '100%', width: '0%', borderRadius: '3px', background: '#10B981', transition: 'width 0.2s, background 0.2s' } });
+                chanceBar.appendChild(chanceFill);
+                var chanceLabel = h('div', { style: { fontSize: '12px', color: '#64748B', marginTop: '4px', textAlign: 'right' } }, 'Acceptance chance: —');
+                function updateAcceptChance() {
+                    var salRatio = playerOffer.salary / neg.theirAsk;
+                    var bonusValue = playerOffer.bonus / Math.max(neg.theirAsk * 8, 1);
+                    var chance = Math.round(Math.max(0, Math.min(100, (salRatio - 0.6) / 0.5 * 80 + bonusValue * 30 + (playerOffer.seasons <= neg.preferredSeasons ? 10 : -5))));
+                    var color = chance >= 70 ? '#10B981' : chance >= 40 ? '#F59E0B' : '#EF4444';
+                    chanceFill.style.width = chance + '%'; chanceFill.style.background = color;
+                    chanceLabel.textContent = 'Acceptance chance: ' + chance + '%'; chanceLabel.style.color = color;
+                }
+                updateAcceptChance();
+                var note = relNote();
+                var floorHint = hasBizMgr ? h('div', { style: { fontSize: '12px', color: '#10B981', marginTop: '4px' } }, '📊 Business Manager: their minimum is ~' + fmtMoney(neg.theirFloor) + '/wk') : null;
+                var countersLeft = maxCounters - neg.countersUsed;
+                return h('div', null,
+                    h('div', { className: 'modal-eyebrow' }, team.name + ' · Driver Signing'),
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } },
+                        h('div', { className: 'modal-title', style: { margin: 0 } }, d.name), relBadge()
+                    ),
+                    note ? h('div', { style: { fontSize: '13px', color: '#94A3B8', background: '#0B0F1A', border: '1px solid #1E2433', borderRadius: '6px', padding: '8px 12px', marginBottom: '10px' } }, note) : null,
+                    h('div', { style: { fontSize: '13px', color: '#64748B', marginBottom: '12px' } },
+                        'Their ask: ' + fmtMoney(neg.theirAsk) + '/wk · Prefers ' + neg.preferredSeasons + '-season deal · Series: ' + ((getSeries(d.currentSeriesId) || {}).short || d.currentSeriesId) + ' · Skill: ' + (d.skill || 55) + (neg.countersUsed > 0 ? ' · Counters left: ' + countersLeft : '')
+                    ),
+                    message ? h('div', { style: { fontSize: '13px', color: messageColor || '#94A3B8', background: '#0B0F1A', border: '1px solid ' + (messageColor || '#1E2433') + '44', borderRadius: '6px', padding: '8px 12px', marginBottom: '10px' } }, message) : null,
+                    floorHint,
+                    h('div', { style: { marginBottom: '10px' } }, h('div', { style: { fontSize: '12px', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' } }, 'Weekly salary'), salInput, salDisplay),
+                    h('div', { style: { marginBottom: '10px' } }, h('div', { style: { fontSize: '12px', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' } }, 'Contract length'), seasonsSelect),
+                    h('div', { style: { marginBottom: '10px' } }, h('div', { style: { fontSize: '12px', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' } }, 'Signing bonus (optional)'), bonusInput, bonusDisplay),
+                    chanceBar, chanceLabel,
+                    h('div', { className: 'modal-actions' },
+                        mkBtn('Walk Away', 'btn btn-ghost', function() { delete d._negotiation; closeModal(); saveGame(); render(); }),
+                        mkBtn('Accept Their Terms', 'btn btn-secondary', function() { finalizeDriverSigning(team, d, neg.theirAsk, neg.preferredSeasons, 0); }),
+                        countersLeft > 0
+                        ? mkBtn('Submit Offer', 'btn btn-primary', function() { submitDriverOffer(team, d, neg, playerOffer, maxCounters, salRange); })
+                        : h('span', { style: { fontSize: '12px', color: '#EF4444', padding: '6px 10px' } }, 'No counters left — accept or walk')
+                    )
+                );
+            }
+            openModal(buildModal(null, null));
+        }
+
+        function submitDriverOffer(team, d, neg, offer, maxCounters, salRange) {
+            neg.countersUsed++;
+            var countersLeft = maxCounters - neg.countersUsed;
+            if (offer.salary < neg.theirFloor && offer.bonus < neg.theirFloor * 2) {
+                G.dramaQueue.push({
+                    id: 'driver_lowball_' + uid(),
+                    title: '📰 ' + d.name + ' Turned Down ' + team.name,
+                    desc: d.name + ' rejected an offer from ' + team.name + ' they described as below market. Word is spreading in the paddock — other drivers are adjusting their expectations upward.',
+                    valence: 'bad', effect: 'info',
+                });
+                G._driverSalaryInflation = Math.min(1.15, (G._driverSalaryInflation || 1.0) + 0.04);
+                delete d._negotiation;
+                closeModal(); saveGame(); render();
+                return;
+            }
+            var salRatio = offer.salary / neg.theirAsk;
+            var bonusValue = offer.bonus / Math.max(neg.theirAsk * 8, 1);
+            var acceptChance = Math.max(0, Math.min(0.95, (salRatio - 0.6) / 0.5 * 0.8 + bonusValue * 0.3 + (offer.seasons <= neg.preferredSeasons ? 0.1 : -0.05)));
+            if (Math.random() < acceptChance) {
+                finalizeDriverSigning(team, d, offer.salary, offer.seasons, offer.bonus);
+                return;
+            }
+            if (countersLeft > 0) {
+                var counterSal = Math.floor((offer.salary + neg.theirAsk) / 2);
+                neg.theirAsk = counterSal;
+                openDriverNegotiationModal(team, d, salRange,
+                    d.name + ' countered: ' + fmtMoney(counterSal) + '/wk. ' +
+                    (offer.seasons > neg.preferredSeasons ? 'They\'d prefer a shorter deal. ' : '') +
+                    (countersLeft === 1 ? 'This is their final position.' : ''),
+                    '#F59E0B'
+                );
+            } else {
+                G.dramaQueue.push({
+                    id: 'driver_noagree_' + uid(),
+                    title: '🤝 No Deal — ' + d.name,
+                    desc: team.name + ' and ' + d.name + ' couldn\'t reach an agreement after extended talks. They remain available but the relationship may be cooler.',
+                    valence: 'neutral', effect: 'info',
+                });
+                delete d._negotiation;
+                closeModal(); saveGame(); render();
+            }
+        }
+
+        function finalizeDriverSigning(team, d, salary, seasons, bonus) {
+            var td2 = makeTeamDriver(team.seriesId, d.name, d.skill || 55);
+            td2.salary = salary;
+            td2.contractSeasons = seasons;
+            var freeCar = team.cars.find(function(c) { return !team.drivers.some(function(x) { return x && x.carId === c.id; }); });
+            if (freeCar) td2.carId = freeCar.id;
+            team.drivers.push(td2);
+            if (bonus > 0) { G.money -= bonus; team.totalSpent = (team.totalSpent || 0) + bonus; }
+            var srcDriver = (G.drivers || []).find(function(gd) { return gd.name === d.name; });
+            if (srcDriver && srcDriver.currentTeam) {
+                srcDriver._leavingForTeam = team.name;
+                srcDriver._leavingAfterSeason = G.season;
+                addLog(G, '🤝 Signed ' + d.name + ' (' + srcDriver.currentTeam + ') for ' + team.name + ' — ' + fmtMoney(salary) + '/wk · ' + seasons + ' season(s)' + (bonus > 0 ? ' · Bonus: -' + fmtMoney(bonus) : '') + ' · leaves current team at season end');
+            } else {
+                addLog(G, '🤝 Signed ' + d.name + ' for ' + team.name + ' — ' + fmtMoney(salary) + '/wk · ' + seasons + ' season(s)' + (bonus > 0 ? ' · Bonus: -' + fmtMoney(bonus) : ''));
+            }
+            delete d._negotiation;
+            if (G._driverSalaryInflation > 1.0) G._driverSalaryInflation = Math.max(1.0, G._driverSalaryInflation - 0.02);
+            closeModal(); saveGame(); render();
+        }
         function renderBusiness() {
             const f = document.createDocumentFragment();
             f.appendChild(h('div', { className: 'page-title' }, 'Business'));

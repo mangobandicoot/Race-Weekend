@@ -161,6 +161,7 @@
                 td.points = (td.points || 0) + Math.max(1, 43 - pos);
                 if (pos === 1) td.wins = (td.wins || 0) + 1;
                 if (pos <= 5) td.top5s = (td.top5s || 0) + 1;
+                if (pos <= 10) td.top10s = (td.top10s || 0) + 1;
                 // Morale
                 if (pos <= 5) td.morale = Math.min(100, (td.morale || 70) + 5);
                 else if (pos > fieldSize * 0.75) td.morale = Math.max(10, (td.morale || 70) - 4);

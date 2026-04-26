@@ -630,6 +630,7 @@
             { id: 'tire_specialist',name:'Tire Specialist',weeklyCost: 350, bonus: { handling: 3 } },
             { id: 'spotter',      name: 'Spotter',       weeklyCost: 200,  bonus: { awareness: 3 } },
             { id: 'pr_manager',   name: 'PR Manager',    weeklyCost: 400,  bonus: { fanGain: 10 } },
+            { id: 'biz_manager', name: 'Business Manager', weeklyCost: 800, bonus: { negotiation: 1 }, desc: 'Reveals sponsor floors during negotiation and improves counter success. Reduces driver salary demands by 5%.' },
         ];
 
         // Earliest week a player can buy into a team mid-season (as % of schedule)

@@ -280,6 +280,11 @@
             }
 
             state.drivers.forEach(d => { d.seasonPoints = 0; d.seasonWins = 0; d.injuredOrPenalized = false; d.substituteFor = null; });
+            if (state.ownedTeam) {
+                state.ownedTeam.drivers.forEach(function(td) {
+                    if (td) { td.points = 0; td.wins = 0; td.top5s = 0; td.top10s = 0; td.starts = 0; }
+                });
+            }
             // Evolve AI-to-AI rivalries each season
             state.drivers.forEach(function (d) {
                 if (!d.active) return;
@@ -758,6 +763,104 @@
                 if (sp.seasonsLeft <= 0) { addLog(state, `📋 ${sp.brand} sponsorship ended.`); return false; }
                 return true;
             });
+
+            // Tick team sponsor seasons and enforce performance clauses
+            if (state.ownedTeam && state.ownedTeam.sponsors) {
+                // Evaluate clauses before ticking
+                var teamWins = (state.ownedTeam.drivers || []).reduce(function(a, d) { return a + (d.wins || 0); }, 0);
+                var teamTop5s = (state.ownedTeam.drivers || []).reduce(function(a, d) { return a + (d.top5s || 0); }, 0);
+                var teamTop10s = (state.ownedTeam.drivers || []).reduce(function(a, d) { return a + (d.top10s || 0); }, 0);
+                var teamStarts = (state.ownedTeam.drivers || []).reduce(function(a, d) { return a + (d.starts || 0); }, 0);
+
+                state.ownedTeam.sponsors.forEach(function(sp) {
+                    if (!sp.clause) return;
+                    var achieved = false;
+                    switch (sp.clause.type) {
+                        case 'win':    achieved = teamWins >= sp.clause.req; break;
+                        case 'top5':   achieved = teamTop5s >= sp.clause.req; break;
+                        case 'top10':  achieved = teamTop10s >= sp.clause.req; break;
+                        case 'starts': achieved = teamStarts >= sp.clause.req; break;
+                        case 'champ_pos':
+                        case 'champ_pos_pct': {
+                            // Calculate team championship position in their series
+                            var teamSeriesDrivers = (state.drivers || []).filter(function(d) {
+                                return d.active && d.currentSeriesId === state.ownedTeam.seriesId;
+                            });
+                            var teamTotalPoints = (state.ownedTeam.drivers || []).reduce(function(a, d) { return a + (d.points || 0); }, 0);
+                            var teamsAhead = teamSeriesDrivers.filter(function(d) {
+                                return (d.seasonPoints || 0) > teamTotalPoints;
+                            }).length;
+                            var champPos = teamsAhead + 1;
+                            var fieldSize2 = teamSeriesDrivers.length + 1;
+                            if (sp.clause.type === 'champ_pos') {
+                                achieved = champPos <= sp.clause.req;
+                            } else {
+                                achieved = (champPos / fieldSize2) <= sp.clause.req;
+                            }
+                            addLog(state, '📊 ' + state.ownedTeam.name + ' championship position: P' + champPos + ' of ' + fieldSize2);
+                            break;
+                        }
+                    }
+                    if (achieved) {
+                        addLog(state, '✅ ' + sp.brand + ' clause met (' + sp.clause.label + ') — ' + state.ownedTeam.name + ' keeps full value.');
+                        sp.happiness = Math.min(100, (sp.happiness || 80) + 15);
+                    } else {
+                        var pen = sp.clause.penalty || 0;
+                        if (pen > 0) {
+                            state.money = Math.max(0, state.money - pen);
+                            state.ownedTeam.totalSpent = (state.ownedTeam.totalSpent || 0) + pen;
+                        }
+                        sp.happiness = Math.max(0, (sp.happiness || 80) - sp.clause.penaltyHappy);
+                        addLog(state, '❌ ' + sp.brand + ' clause missed (' + sp.clause.label + ')' + (pen > 0 ? ' — penalty: -' + fmtMoney(pen) : '') + ' · happiness -' + sp.clause.penaltyHappy + '%');
+                        state.dramaQueue.push({
+                            id: 'team_clause_fail_' + uid(),
+                            title: '📋 ' + sp.brand + ' Clause Not Met',
+                            desc: state.ownedTeam.name + ' failed the ' + sp.brand + ' performance clause (' + sp.clause.label + ').' + (pen > 0 ? ' Penalty: -' + fmtMoney(pen) + '.' : '') + ' Sponsor happiness dropped to ' + sp.happiness + '%. At 0% they won\'t renew.',
+                            valence: 'bad', effect: 'info',
+                        });
+                    }
+                });
+
+                // Tick seasons, pay out value, drop expired
+                state.ownedTeam.sponsors = state.ownedTeam.sponsors.map(function(sp) {
+                    return Object.assign({}, sp, { seasonsLeft: sp.seasonsLeft - 1 });
+                }).filter(function(sp) {
+                    if (sp.seasonsLeft <= 0) {
+                        // Pay out final season value
+                        state.money += sp.valuePerSeason;
+                        state.ownedTeam.totalRevenue = (state.ownedTeam.totalRevenue || 0) + sp.valuePerSeason;
+                        addLog(state, '📋 ' + sp.brand + ' team sponsorship ended — final payment: +' + fmtMoney(sp.valuePerSeason));
+                        if ((sp.happiness || 80) >= 60) {
+                            // Happy sponsor — push a renewal offer
+                            if (!state.ownedTeam.sponsorOffers) state.ownedTeam.sponsorOffers = [];
+                            state.ownedTeam.sponsorOffers.push({
+                                id: uid(), brand: sp.brand,
+                                valuePerSeason: Math.floor(sp.valuePerSeason * (1 + Math.random() * 0.15)),
+                                seasonsLeft: rand(1, 3),
+                                winBonus: sp.winBonus,
+                                clause: sp.clause,
+                                _theirFloor: Math.floor(sp.valuePerSeason * 0.8),
+                                _renewal: true,
+                            });
+                            addLog(state, '🔄 ' + sp.brand + ' is open to renewing with ' + state.ownedTeam.name + '.');
+                        }
+                        return false;
+                    }
+                    // Mid-contract — pay season value
+                    state.money += sp.valuePerSeason;
+                    state.ownedTeam.totalRevenue = (state.ownedTeam.totalRevenue || 0) + sp.valuePerSeason;
+                    return true;
+                });
+
+                // Clear blacklist from prior season
+                if (state.ownedTeam._blacklistedBrands) {
+                    Object.keys(state.ownedTeam._blacklistedBrands).forEach(function(brand) {
+                        if (state.ownedTeam._blacklistedBrands[brand] < state.season) {
+                            delete state.ownedTeam._blacklistedBrands[brand];
+                        }
+                    });
+                }
+            }
 
             // Tick multi-season contracts
             state.contracts.forEach(c => { c.seasonsCompleted++; c.racesCompleted = 0; c.earnings = 0; c.missedFinishWarnings = 0; });
