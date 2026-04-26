@@ -56,13 +56,9 @@ iRacing only has spec cars, meaning all cars are 100% drivable before races and 
 
 ## Known Issues
 
-**Post-race screen reappears.** After closing the repair modal, the post-race summary briefly reappears before dismissing. This doesn't affect results or functionality and should be addressed in a minor update.
-
-**Incident filtering shows all drivers.** When entering incidents after a race, the search pulls from all drivers you've ever encountered rather than just the drivers in that race.
-
 **AI car number conflicts.** If an AI driver's stored number matches your reserved car number, iRacing may assign them a random number instead of the app cleanly reassigning it. Mostly resolved but edge cases remain.
 
-**White or unpainted cars.** Occasionally an AI car will appear unpainted in iRacing. Again, mostly fixed, but edge cases remain. 
+**White or unpainted cars.** Occasionally an AI car will appear unpainted in iRacing. Again, mostly fixed, but edge cases remain. If a generated roster contains any blank cars, please post the affected roster.json to the issues tab, or send via email.
 
 
 Feel free to [submit any bugs you encounter](https://github.com/mangobandicoot/Race-Weekend/issues) or send an email to [Support](mailto:RaceWeekend@proton.me?subject=Race%20Weekend%20Support)
