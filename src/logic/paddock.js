@@ -238,6 +238,7 @@ var nextNum = 1;
                             helmetDesign: rnd(HELMET_DESIGNS),
                             sponsor1: rndSponsor(true),
                             sponsor2: rndSponsor(false),
+                            paintFile: null,
                         };
                         _cached = _driver.rosterCache[_cacheKey];
                     }
@@ -255,6 +256,7 @@ var nextNum = 1;
                     carId:             car.id,
                     sponsor1:          _cached ? _cached.sponsor1 : rndSponsor(true),
                     sponsor2:          _cached ? _cached.sponsor2 : rndSponsor(false),
+                    paintFile:         (_cached && _cached.paintFile) ? 'paints/' + seriesId + '/' + _cached.paintFile : null,
                     numberDesign:      numDesign,
                     driverSkill:       stats.relativeSkill || 70,
                     driverAggression:  stats.aggression    || 70,
@@ -307,9 +309,51 @@ var nextNum = 1;
                 '💾 Exports as ',
                 h('span', { style: { color: '#94A3B8', fontFamily: 'monospace' } }, 'roster.json'),
                 ' — save to ',
-                h('span', { style: { color: '#94A3B8', fontFamily: 'monospace' } }, 'Documents\\iRacing\\airosters\\[Roster Name]\\roster.json'),
+                h('span', { style: { color: '#94A3B8', fontFamily: 'monospace' } }, 'Documents\\\\iRacing\\\\airosters\\\\[Roster Name]\\\\roster.json'),
                 ' then reload iRacing.'
             ));
+            // Paint copy buttons — Electron only
+            if (typeof window._electronPaints !== 'undefined') {
+                f.appendChild(h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'center' } },
+                    h('div', { style: { fontSize: '12px', color: '#475569', flexBasis: '100%' } },
+                        '🎨 Paint files — place ',
+                        h('span', { style: { color: '#94A3B8', fontFamily: 'monospace' } }, '.tga'),
+                        ' files in ',
+                        h('span', { style: { color: '#94A3B8', fontFamily: 'monospace' } }, 'paints/{series}/'),
+                        ', then copy to iRacing with one click.'
+                    ),
+                    ...(G.contracts || []).filter(function(c) { var cs = getSeries(c.seriesId); return cs && !cs.isSideStep; }).map(function(c) {
+                        var s = getSeries(c.seriesId);
+                        var car = (typeof pickSeriesCar !== 'undefined') ? pickSeriesCar(c.seriesId) : null;
+                        return h('div', { style: { display: 'flex', gap: '6px' } },
+                            mkBtn('🎨 Copy ' + (s ? s.short : c.seriesId) + ' Paints → iRacing', 'btn btn-sm btn-secondary', function() {
+                                var drivers = (G.drivers || []).filter(function(d) { return d.active && d.currentSeriesId === c.seriesId; });
+                                var assignments = drivers.map(function(d) {
+                                    return {
+                                        driverName: d.name,
+                                        carNumber: d.carNumber || '0',
+                                        paintFile: d.rosterCache && d.rosterCache[c.seriesId] && d.rosterCache[c.seriesId].paintFile
+                                            ? d.rosterCache[c.seriesId].paintFile : null,
+                                    };
+                                });
+                                window._electronPaints.copyToIRacing({
+                                    seriesId: c.seriesId,
+                                    carPath: car ? car.path.replace(/\\\\/g, '\\') : c.seriesId,
+                                    paintAssignments: assignments,
+                                }).then(function(result) {
+                                    if (!result.ok) { alert('Paint copy failed: ' + result.error); return; }
+                                    var copied = result.results.filter(function(r) { return r.status === 'copied'; }).length;
+                                    var skipped = result.results.filter(function(r) { return r.status === 'skipped'; }).length;
+                                    alert('✅ Copied ' + copied + ' paint file' + (copied !== 1 ? 's' : '') + ' to:\n' + result.iRacingPaintDir + (skipped ? '\n\n' + skipped + ' drivers had no paint assigned (skipped).' : ''));
+                                }).catch(function(e) { alert('Error: ' + e.message); });
+                            }),
+                            mkBtn('📁 Open Paints Folder', 'btn btn-xs btn-secondary', function() {
+                                window._electronPaints.openFolder({ seriesId: c.seriesId });
+                            }),
+                        );
+                    }),
+                ));
+            }
 
             if (!G.contracts.length) {
                 f.appendChild(h('div', { className: 'page-sub' }, 'Current drivers assigned to each series. Set these in iRacing before racing.'));
@@ -747,6 +791,44 @@ var nextNum = 1;
                                         );
                                     })
                                 ),
+                                // Paint file assignment
+                                (function() {
+                                    var _cKey = contract.seriesId;
+                                    var _cache = d.rosterCache && d.rosterCache[_cKey];
+                                    var _currentFile = _cache && _cache.paintFile ? _cache.paintFile : null;
+                                    return h('div', {
+                                        style: {
+                                            marginTop: '8px', padding: '8px 10px',
+                                            background: '#080C14', borderRadius: '6px',
+                                            border: '1px solid #1E2433',
+                                            display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+                                        },
+                                        onClick: function(e) { e.stopPropagation(); }
+                                    },
+                                        h('div', { style: { fontSize: '11px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 } }, '🎨 Paint File'),
+                                        h('input', {
+                                            type: 'text',
+                                            placeholder: _currentFile || 'e.g. ' + (d.carNumber || '48') + '.tga',
+                                            value: _currentFile || '',
+                                            style: {
+                                                flex: 1, minWidth: '120px',
+                                                background: '#0D1117', border: '1px solid #374151',
+                                                borderRadius: '4px', padding: '4px 8px',
+                                                fontSize: '12px', color: '#F9FAFB', fontFamily: 'monospace',
+                                            },
+                                            onInput: function(e) {
+                                                var val = e.target.value.trim();
+                                                if (!d.rosterCache) d.rosterCache = {};
+                                                if (!d.rosterCache[_cKey]) d.rosterCache[_cKey] = {};
+                                                d.rosterCache[_cKey].paintFile = val || null;
+                                                saveGame();
+                                            },
+                                        }),
+                                        h('div', {
+                                            style: { fontSize: '11px', color: _currentFile ? '#10B981' : '#374151', flexShrink: 0, fontWeight: 700 }
+                                        }, _currentFile ? '✓ assigned' : 'place in /paints/' + contract.seriesId + '/'),
+                                    );
+                                })(),
                             ));
                         }
 

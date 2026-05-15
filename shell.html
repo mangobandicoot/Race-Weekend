@@ -440,22 +440,50 @@ button:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
                         autocomplete="off">
                     <div
                         style="font-size:12px;color:#CBD5E1;margin-bottom:6px;margin-top:14px;text-transform:uppercase;letter-spacing:0.1em">
-                        Home State</div>
+                        Home Country</div>
+                    <select id="driver-country-input"
+                        style="width:100%;margin-bottom:10px;font-size:15px;font-weight:600;text-align:center">
+                        <option value="United States" selected>United States</option>
+                        <option value="Canada">Canada</option>
+                        <option value="Mexico">Mexico</option>
+                        <option value="International">International</option>
+                    </select>
+                    <div
+                        style="font-size:12px;color:#CBD5E1;margin-bottom:6px;margin-top:4px;text-transform:uppercase;letter-spacing:0.1em">
+                        Home State / Province</div>
                     <select id="driver-state-input"
                         style="width:100%;margin-bottom:16px;font-size:16px;font-weight:600;text-align:center"></select>
                     <script>
                         document.addEventListener('DOMContentLoaded', function () {
-                            const sel = document.getElementById('driver-state-input');
-                            if (!sel || sel.options.length > 0) return;
-                            const states = typeof US_STATES !== 'undefined' ? US_STATES : ['NC', 'VA', 'TN', 'GA', 'SC', 'FL', 'TX', 'OH', 'IN', 'KY', 'WI', 'IL', 'PA', 'MI', 'International'];
-                            const names = typeof US_STATE_NAMES !== 'undefined' ? US_STATE_NAMES : {};
-                            const intlRegions = ['Europe', 'Africa', 'Asia', 'South America', 'Central America', 'Australia'];
-                            // US states first
-                            states.filter(s => s !== 'International').forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = (names[s] || s); if (s === 'AL') o.selected = true; sel.appendChild(o); });
-                            // Separator
-                            const sep = document.createElement('option'); sep.disabled = true; sep.textContent = '── International ──'; sel.appendChild(sep);
-                            // International regions
-                            intlRegions.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o); });
+                            var countrySel = document.getElementById('driver-country-input');
+                            var stateSel = document.getElementById('driver-state-input');
+                            if (!stateSel) return;
+                            function populateStates() {
+                                stateSel.innerHTML = '';
+                                var country = countrySel ? countrySel.value : 'United States';
+                                var opts = [];
+                                if (country === 'Canada') {
+                                    var ca = typeof CANADIAN_PROVINCES !== 'undefined' ? CANADIAN_PROVINCES : { ON: 'Ontario', QC: 'Quebec', BC: 'British Columbia', AB: 'Alberta', MB: 'Manitoba', SK: 'Saskatchewan', NS: 'Nova Scotia', NB: 'New Brunswick', NL: 'Newfoundland', PE: 'Prince Edward Island' };
+                                    opts = Object.keys(ca).map(function(k) { return { value: 'CA_' + k, label: ca[k] }; });
+                                } else if (country === 'Mexico') {
+                                    var mx = typeof MEXICAN_STATES !== 'undefined' ? MEXICAN_STATES : { CDMX: 'Mexico City', JAL: 'Jalisco', NL: 'Nuevo Le\u00f3n', SON: 'Sonora', COAH: 'Coahuila' };
+                                    opts = Object.keys(mx).map(function(k) { return { value: 'MX_' + k, label: mx[k] }; });
+                                } else if (country === 'International') {
+                                    var intl = { Europe: 'Europe', CentralAmerica: 'Central America', SouthAmerica: 'South America', Africa: 'Africa', AsiaPacific: 'Asia-Pacific', Australia: 'Australia' };
+                                    opts = Object.keys(intl).map(function(k) { return { value: 'INTL_' + k, label: intl[k] }; });
+                                } else {
+                                    var us = typeof US_STATES !== 'undefined' ? US_STATES : ['ME','NC','VA','TN','GA','SC','FL','TX','OH','IN','KY','WI','IL','PA','MI'];
+                                    var names = typeof US_STATE_NAMES !== 'undefined' ? US_STATE_NAMES : {};
+                                    opts = us.map(function(s) { return { value: s, label: names[s] || s }; });
+                                }
+                                opts.forEach(function(opt) {
+                                    var o = document.createElement('option');
+                                    o.value = opt.value; o.textContent = opt.label;
+                                    stateSel.appendChild(o);
+                                });
+                            }
+                            if (countrySel) countrySel.addEventListener('change', populateStates);
+                            populateStates();
                         });
                     </script>
                     <div class="setup-hint">Run your seasons in iRacing offline mode, then come back and enter results.

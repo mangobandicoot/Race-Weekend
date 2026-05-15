@@ -36,3 +36,8 @@ contextBridge.exposeInMainWorld('electronBridge', {
   // Is this a no-flags build?
   isNoFlags: () => ipcRenderer.invoke('bridge:isNoFlags'),
 });
+
+contextBridge.exposeInMainWorld('_electronPaints', {
+  copyToIRacing: (args) => ipcRenderer.invoke('paints:copyToIRacing', args),
+  openFolder: (args) => ipcRenderer.invoke('paints:openFolder', args),
+});

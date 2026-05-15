@@ -190,6 +190,58 @@ ipcMain.handle('save:delete', () => {
   }
 });
 
+ipcMain.handle('paints:copyToIRacing', (_, { seriesId, carPath, paintAssignments }) => {
+  // paintAssignments: [{ driverName, carNumber, paintFile }]
+  // carPath: e.g. 'nascarnextgencup' — used to find iRacing's paint folder
+  try {
+    const docsPath = app.getPath('documents');
+    const iRacingPaintDir = path.join(docsPath, 'iRacing', 'paint', carPath);
+    const gamePaintDir = path.join(app.isPackaged ? process.resourcesPath : __dirname, 'paints', seriesId);
+    const defaultsDir = path.join(gamePaintDir, 'defaults');
+
+    if (!fs.existsSync(iRacingPaintDir)) {
+      fs.mkdirSync(iRacingPaintDir, { recursive: true });
+    }
+
+    const results = [];
+    for (const entry of paintAssignments) {
+      const destName = 'car_' + entry.carNumber + '.tga';
+      const destPath = path.join(iRacingPaintDir, destName);
+
+      let srcPath = null;
+      if (entry.paintFile) {
+        const candidate = path.join(gamePaintDir, entry.paintFile);
+        if (fs.existsSync(candidate)) srcPath = candidate;
+      }
+      // Fallback: check defaults folder for car_NUMBER.tga or default.tga
+      if (!srcPath && fs.existsSync(defaultsDir)) {
+        const numbered = path.join(defaultsDir, entry.carNumber + '.tga');
+        const generic = path.join(defaultsDir, 'default.tga');
+        if (fs.existsSync(numbered)) srcPath = numbered;
+        else if (fs.existsSync(generic)) srcPath = generic;
+      }
+
+      if (srcPath) {
+        fs.copyFileSync(srcPath, destPath);
+        results.push({ driver: entry.driverName, file: destName, status: 'copied' });
+      } else {
+        results.push({ driver: entry.driverName, file: destName, status: 'skipped' });
+      }
+    }
+    return { ok: true, iRacingPaintDir, results };
+  } catch (e) {
+    console.error('[Paints] Copy failed:', e.message);
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('paints:openFolder', (_, { seriesId }) => {
+  const gamePaintDir = path.join(app.isPackaged ? process.resourcesPath : __dirname, 'paints', seriesId);
+  if (!fs.existsSync(gamePaintDir)) fs.mkdirSync(gamePaintDir, { recursive: true });
+  shell.openPath(gamePaintDir);
+  return true;
+});
+
 ipcMain.handle('bridge:readEvents', () => {
   if (NO_BRIDGE) return null;
   try {

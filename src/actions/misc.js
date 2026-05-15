@@ -251,6 +251,38 @@
                     window._appIsNoFlags = !!val;
                 }).catch(function() {});
             }
+            // Populate home state dropdown on start career screen
+            (function() {
+                const sel = $('driver-state-input');
+                if (!sel || sel.options.length > 0) return;
+                function addSep(label) {
+                    const sep = document.createElement('option');
+                    sep.disabled = true;
+                    sep.textContent = '── ' + label + ' ──';
+                    sel.appendChild(sep);
+                }
+                function addOpt(value, label, selected) {
+                    const o = document.createElement('option');
+                    o.value = value;
+                    o.textContent = label;
+                    if (selected) o.selected = true;
+                    sel.appendChild(o);
+                }
+                const us = typeof US_STATES !== 'undefined' ? US_STATES.filter(function(s) { return s !== 'International'; }) : [];
+                const names = typeof US_STATE_NAMES !== 'undefined' ? US_STATE_NAMES : {};
+                us.forEach(function(s) { addOpt(s, names[s] || s, s === 'AL'); });
+                addSep('Canada');
+                if (typeof CANADIAN_PROVINCES !== 'undefined') {
+                    Object.keys(CANADIAN_PROVINCES).sort().forEach(function(code) { addOpt('CA_' + code, CANADIAN_PROVINCES[code] + ', Canada'); });
+                }
+                addSep('Mexico');
+                if (typeof MEXICAN_STATES !== 'undefined') {
+                    Object.keys(MEXICAN_STATES).sort().forEach(function(code) { addOpt('MX_' + code, MEXICAN_STATES[code] + ', Mexico'); });
+                }
+                addSep('Other International');
+                ['Europe', 'Africa', 'Asia', 'South America', 'Central America', 'Australia'].forEach(function(r) { addOpt(r, r); });
+            })();
+
             $('setup-form').addEventListener('submit', e => {
                 e.preventDefault();
                 const name = $('driver-name-input').value.trim();
